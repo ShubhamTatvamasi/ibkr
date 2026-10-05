@@ -3,149 +3,196 @@ import Docs from '../../layouts/Docs.astro';
 import Icon from '../../components/Icon.astro';
 
 const base = import.meta.env.BASE_URL.replace(/\/?$/, '/');
-const prompt =
-  'Name IndiaTax, XML, all fields: Trades (Execution, Closed Lots), Open Positions (Lot), Cash Transactions, Prior Period Positions, Statement of Funds, Account Information, Financial Instrument Info';
-const sections = [
-  { name: 'Trades', options: 'Executions + Closed Lots', why: 'Every sale with the exact lot it closed: acquisition date and cost.', req: true },
-  { name: 'Open Positions', options: 'Lot (not Summary only)', why: 'One row per purchase lot with its open date — Schedule FA A3 needs one row per lot.', req: true },
-  { name: 'Cash Transactions', options: 'Detail', why: 'Dividends, interest and US tax withheld for Schedules OS, FSI, TR and Form 67.', req: true },
-  { name: 'Account Information', why: 'Account number, opening date and IBKR entity for Schedule FA A2.', req: false },
-  { name: 'Prior Period Positions', why: 'Daily price of every position — exact Schedule FA peak values with no outside price data.', req: false },
-  { name: 'Statement of Funds', why: 'Running cash balance — the true peak cash for Schedule FA A2.', req: false },
-  { name: 'Financial Instrument Information', why: 'Full company names, ISIN and issuer country.', req: false },
-  { name: 'Cash Report', why: 'Opening and closing cash, used if Statement of Funds is missing.', req: false },
-  { name: 'Change in Dividend Accruals', why: 'Ex-dates, so each dividend is matched to the lots that earned it.', req: false },
-  { name: 'Corporate Actions', why: 'Splits, mergers and spin-offs are flagged for review.', req: false },
+
+// The Sections grid exactly as IBKR shows it: left column, then right column.
+const LEFT = [
+  'Account Information', 'Borrow Fees Details', 'Cash Report', 'Cash Transactions', 'CFD Charges', 'Change in Dividend Accruals',
+  'Change in NAV', 'Change in Position Value Summary', 'Commission Credits', 'Commission Details', 'Complex Positions', 'Corporate Actions',
+  'Debit Card Activity', 'Deposits on Hold', 'FDIC-Insured Deposits by Bank', 'Financial Instrument Information', 'Forex Balances',
+  'Forex P/L Details', 'Grant Activity', 'HK IPO Open Subscriptions', 'HK IPO Subscription Activity', 'IBG Notes',
+  'Incentive Coupon Accrual Details', 'Incoming/Outgoing Trade Transfers', 'Unsettled Transfers',
 ];
-const config = [
+const RIGHT = [
+  'Interest Accruals', 'Interest Details (Tiers)', 'Mark-to-Market Performance Summary in Base', 'Month & Year to Date Performance Summary in Base',
+  'Mutual Fund Dividend Details', 'Net Asset Value (NAV) in Base', 'Net Stock Position Summary', 'Open Dividend Accruals', 'Open Positions',
+  'Option Exercises, Assignments and Expirations', 'Pending Exercises', 'Prior Period Positions', 'Realized and Unrealized Performance Summary in Base',
+  'Routing Commissions', 'Sales Tax Details', 'Securities Borrowed/Lent', 'Securities Borrowed/Lent Activity', 'Securities Borrowed/Lent Fee Details',
+  'Securities Collateral Held at IBSS', 'Statement of Funds', 'Trades', 'Transaction Fees', 'Transfers', 'Unbooked Trades',
+];
+
+// Our sections, in the order they appear in the grid (left column top-down, then right column).
+const PICK = [
+  { name: 'Account Information', req: false, options: null, why: 'Account number and opening date for Schedule FA A2.' },
+  { name: 'Cash Transactions', req: true, options: 'Tick every transaction type (Dividends, Payment in Lieu of Dividends, Withholding Tax, 871(m) Withholding, Broker Interest Received, Deposits & Withdrawals …) and Detail.', why: 'Dividends, interest and US tax withheld.' },
+  { name: 'Change in Dividend Accruals', req: false, options: 'Detail.', why: 'Ex-dates, so each dividend is credited to the lots that earned it.' },
+  { name: 'Corporate Actions', req: false, options: 'Detail.', why: 'Splits and mergers are flagged for review.' },
+  { name: 'Financial Instrument Information', req: false, options: null, why: 'Company names, ISIN, issuer country, ETF flag.' },
+  { name: 'Open Positions', req: true, options: 'Lot (not Summary).', why: 'One row per purchase lot with its Open Date Time — Schedule FA A3.' },
+  { name: 'Prior Period Positions', req: false, options: null, why: 'Daily price of each holding — exact peak values.' },
+  { name: 'Statement of Funds', req: false, options: 'Leave the default (Base Currency Summary).', why: 'Daily cash balance — the Schedule FA A2 peak.' },
+  { name: 'Trades', req: true, options: 'Executions and Closed Lots (both).', why: 'Every sale and the exact lot it closed — capital gains.' },
+];
+const order = new Map(PICK.map((p, i) => [p.name, i + 1]));
+
+const delivery = [
+  ['Accounts', 'Your account (already filled)'],
+  ['Models', 'Optional'],
   ['Format', 'XML'],
-  ['Period', 'Any — you choose dates each time you run it'],
-  ['Date format', 'yyyyMMdd (default) or yyyy-MM-dd'],
-  ['Time format', 'HHmmss (default)'],
-  ['Include canceled trades', 'No'],
-  ['Everything else', 'Leave at default'],
+  ['Period', 'Leave as is — you choose dates when you run it'],
 ];
-const years = [
-  { label: 'AY 2026-27', sub: 'FY 2025-26', cy: ['1 Jan 2025', '31 Dec 2025'], fy: ['1 Apr 2025', '31 Mar 2026'] },
+const general = [
+  ['Date Format', 'yyyyMMdd'],
+  ['Time Format', 'HHmmss'],
+  ['Date/Time Separator', '; (semi-colon)'],
+  ['Profit and Loss', 'Default'],
+  ['Include Offsetting Trade/Cancel Pairs?', 'No'],
+  ['Include Currency Rates?', 'No'],
+  ['Include Audit Trail Fields?', 'No'],
+  ['Display Account Alias in Place of Account ID?', 'No'],
+  ['Breakout by Day?', 'No'],
+];
+const runs = [
   { label: 'Tax year 2026-27', sub: 'Income-tax Act 2025', cy: ['1 Jan 2026', '31 Dec 2026'], fy: ['1 Apr 2026', '31 Mar 2027'] },
+  { label: 'AY 2026-27', sub: 'FY 2025-26', cy: ['1 Jan 2025', '31 Dec 2025'], fy: ['1 Apr 2025', '31 Mar 2026'] },
 ];
+const aiPrompt =
+  'Name IndiaTax, XML, all fields: Trades (Execution, Closed Lots), Open Positions (Lot), Cash Transactions, Prior Period Positions, Statement of Funds, Account Information, Financial Instrument Info';
 const toc = [
-  { id: 'ai', label: 'Quick way: Configure with AI' },
-  { id: 'manual', label: 'Create it by hand' },
-  { id: 'sections', label: 'Sections' },
-  { id: 'settings', label: 'Delivery settings' },
-  { id: 'run', label: 'Run it twice' },
+  { id: 'open', label: '1 · Open the form' },
+  { id: 'name', label: '2 · Query name' },
+  { id: 'sections', label: '3 · Sections' },
+  { id: 'filters', label: '4 · Filters' },
+  { id: 'delivery', label: '5 · Delivery configuration' },
+  { id: 'general', label: '6 · General configuration' },
+  { id: 'create', label: '7 · Continue and create' },
+  { id: 'run', label: '8 · Run it twice' },
+  { id: 'upload', label: '9 · Upload' },
+  { id: 'ai', label: 'Alternative: Configure with AI' },
   { id: 'faq', label: 'Questions' },
 ];
 ---
-<Docs title="Flex Query Guide · IBKR India Tax" description="Create the IBKR Activity Flex Query this tool needs, step by step." crumb="Flex Query guide" toc={toc}>
+<Docs title="Flex Query Guide · IBKR India Tax" description="Create the IBKR Activity Flex Query this tool needs, field by field." crumb="Flex Query guide" toc={toc}>
   <span class="badge accent"><Icon name="book" size={14} />Setup guide</span>
   <h1>Create your IBKR Flex Query</h1>
   <p class="lead">
-    A Flex Query is a report template you build once in IBKR and run for any dates. It is the only IBKR export with lot-level
-    detail — each purchase's date and cost, and which lot each sale closed — which is exactly what Schedule FA and capital gains need.
+    Follow IBKR's <b>Create Activity Flex Query</b> form from top to bottom. You set it up once, then run it twice for each return —
+    the only IBKR export with each lot's purchase date, which Schedule FA and capital gains need.
   </p>
   <div class="facts">
     <span class="fact"><Icon name="clock" size={16} /><span><b>10 minutes</b>, once</span></span>
-    <span class="fact"><Icon name="file-table" size={16} /><span><b>1 query</b>, XML format</span></span>
+    <span class="fact"><Icon name="check-circle" size={16} /><span><b>9 sections</b>, Select All in each</span></span>
     <span class="fact"><Icon name="calendar" size={16} /><span><b>2 runs</b> per return</span></span>
   </div>
 
-  <section id="ai">
-    <h2><span class="h-icon"><Icon name="sparkle" size={18} /></span>Quick way: Configure with AI</h2>
-    <p class="sec-lead">IBKR's AI sets up the sections from one description of up to 200 characters; you then select the fields by hand. Each prompt generates a whole new query, so use this single prompt. IBKR's own instructions: <a href="https://www.ibkrguides.com/clientportal/configure-flex-with-ai.htm">Configure Flex with AI</a>.</p>
-    <ol class="vsteps">
-      <li>
-        <div>
-          <b>Open Configure with AI</b>
-          <span class="path-chip">Performance &amp; Reports <Icon name="chevron-right" size={12} /> Flex Queries <Icon name="chevron-right" size={12} /> Configure with AI</span>
-        </div>
-      </li>
-      <li>
-        <div>
-          <b>Paste this prompt and click Generate Flex Query</b>
-          <div class="prompt">
-            <div class="prompt-head"><b>Prompt · {prompt.length}/200 characters</b><button class="btn sm" data-copy={prompt}><Icon name="copy" size={16} /><span>Copy</span></button></div>
-            <p>{prompt}</p>
-          </div>
-        </div>
-      </li>
-      <li>
-        <div>
-          <b>Click Edit Manually: rename the query and select all fields</b>
-          <p>Required. Even when asked for all fields, the AI usually keeps a short default list — without <b>Open Date Time</b> (each lot's purchase date) or <b>Conid</b>. In the editor:</p>
-          <ul class="edit-list">
-            <li>Check <b>Query Name</b> is <code>IndiaTax</code>. If the AI made up its own name with commas or “&amp;”, change it — IBKR rejects those with <code>NAME_INVALID_CHARS</code>.</li>
-            <li>Open each section, press <b>Select All</b>, and save the section.</li>
-          </ul>
-          <div class="kv check-kv">
-            <div class="kv-row"><span>Query Name</span><b>IndiaTax</b></div>
-            <div class="kv-row"><span>Format</span><b>XML</b></div>
-            <div class="kv-row"><span>Trades → Options</span><b>Execution and Closed Lots</b></div>
-            <div class="kv-row"><span>Open Positions → Options</span><b>Lot</b></div>
-            <div class="kv-row"><span>Trades and Open Positions fields</span><b>include Open Date Time</b></div>
-          </div>
-        </div>
-      </li>
-      <li>
-        <div>
-          <b>Optional: add two more sections</b>
-          <p>While editing, add <b>Change in Dividend Accruals</b> (ex-dates for matching dividends to lots) and <b>Corporate Actions</b> (flags splits), each with <b>Select All</b>.</p>
-        </div>
-      </li>
-      <li>
-        <div>
-          <b>Save</b>
-          <p>The period it sets (for example “Last Business Day”) doesn't matter — you pick dates each time you run it. After upload, the tool lists any field that is still missing.</p>
-        </div>
-      </li>
-    </ol>
+  <section id="open">
+    <h2><span class="h-num">1</span>Open the form</h2>
+    <p class="sec-lead">In IBKR, click the <b>+</b> next to <b>Activity Flex Query</b>.</p>
+    <span class="path-chip">Performance &amp; Reports <Icon name="chevron-right" size={12} /> Flex Queries <Icon name="chevron-right" size={12} /> Activity Flex Query <Icon name="chevron-right" size={12} /> +</span>
   </section>
 
-  <section id="manual">
-    <h2><span class="h-icon"><Icon name="file-table" size={18} /></span>Or create it by hand</h2>
-    <ol class="vsteps">
-      <li>
-        <div>
-          <b>Open Flex Queries</b>
-          <span class="path-chip">Client Portal <Icon name="chevron-right" size={12} /> Performance &amp; Reports <Icon name="chevron-right" size={12} /> Flex Queries</span>
-        </div>
-      </li>
-      <li><div><b>Create an Activity Flex Query</b><p>Click <b>+</b> next to Activity Flex Query and set <b>Query Name</b> to letters and numbers only, for example <code>IndiaTax</code>.</p></div></li>
-      <li><div><b>Add each section below</b><p>In each section's popup set the options shown, click <b>Select All</b> for the fields, then <b>Save</b>.</p></div></li>
-      <li><div><b>Apply the delivery settings</b><p>Set the format to XML, keep the other defaults, and save the query.</p></div></li>
-    </ol>
+  <section id="name">
+    <h2><span class="h-num">2</span>Query name</h2>
+    <div class="form-row">
+      <span class="form-label">Query Name</span>
+      <div class="form-value"><code class="big">IndiaTax</code><button class="btn sm" data-copy="IndiaTax"><Icon name="copy" size={16} /><span>Copy</span></button></div>
+    </div>
+    <p class="note-line"><Icon name="info" size={16} /><span>Letters and numbers only. Commas or “&amp;” are rejected with <code>NAME_INVALID_CHARS</code>.</span></p>
   </section>
 
   <section id="sections">
-    <h2><span class="h-icon"><Icon name="check-circle" size={18} /></span>Sections</h2>
-    <p class="sec-lead">Three are required. The rest turn approximations into exact figures.</p>
-    <div class="sec-grid">
-      {sections.map((s) => (
-        <div class:list={['sec', { req: s.req }]}>
-          <div class="sec-top"><b>{s.name}</b><span class:list={['badge', { accent: s.req }]}>{s.req ? 'Required' : 'Recommended'}</span></div>
-          {s.options && <span class="opt">Options: {s.options}</span>}
-          <p>{s.why}</p>
-        </div>
+    <h2><span class="h-num">3</span>Sections — click these nine, in order</h2>
+    <p class="sec-lead">
+      Each click opens a pop-up. In every pop-up: set the <b>options</b> shown below, press <b>Select All</b> for the fields, then <b>Save</b>.
+      Select All matters — it brings in <b>Open Date Time</b> and <b>Conid</b>, which the default field list leaves out.
+    </p>
+
+    <figure class="form-map" aria-label="IBKR Sections grid with the nine sections to select numbered">
+      <figcaption><Icon name="eye" size={16} />Where they are in IBKR's Sections grid</figcaption>
+      <div class="map-cols">
+        {[LEFT, RIGHT].map((col) => (
+          <ul>
+            {col.map((n) => (
+              <li class:list={{ on: order.has(n) }}>
+                {order.has(n) && <span class="map-n">{order.get(n)}</span>}{n}
+              </li>
+            ))}
+          </ul>
+        ))}
+      </div>
+    </figure>
+
+    <div class="tick-head">
+      <h3>Checklist</h3>
+      <span class="badge accent" data-tick-count>0 of {PICK.length} done</span>
+    </div>
+    <ol class="ticks">
+      {PICK.map((p, i) => (
+        <li>
+          <label class="tick">
+            <input type="checkbox" data-tick />
+            <span class="tick-n">{i + 1}</span>
+            <span class="tick-body">
+              <span class="tick-top"><b>{p.name}</b><span class:list={['badge', { accent: p.req }]}>{p.req ? 'Required' : 'Recommended'}</span></span>
+              <span class="tick-why">{p.why}</span>
+              <span class="tick-steps">
+                {p.options && <span class="step-pill"><b>Options</b> {p.options}</span>}
+                <span class="step-pill"><b>Fields</b> Select All</span>
+                <span class="step-pill"><b>Then</b> Save</span>
+              </span>
+            </span>
+          </label>
+        </li>
       ))}
+    </ol>
+    <p class="note-line"><Icon name="info" size={16} /><span>Skip every other section. Cash Report isn't needed when Statement of Funds is selected.</span></p>
+  </section>
+
+  <section id="filters">
+    <h2><span class="h-num">4</span>Filters</h2>
+    <div class="kv">
+      <div class="kv-row"><span>Symbols</span><b>Leave empty — no Add Symbol</b></div>
+      <div class="kv-row"><span>Include Derivatives</span><b>Leave unticked</b></div>
     </div>
   </section>
 
-  <section id="settings">
-    <h2><span class="h-icon"><Icon name="info" size={18} /></span>Delivery settings</h2>
-    <div class="kv">
-      {config.map(([k, v]) => <div class="kv-row"><span>{k}</span><b>{v}</b></div>)}
-    </div>
+  <section id="delivery">
+    <h2><span class="h-num">5</span>Delivery configuration</h2>
+    <div class="kv">{delivery.map(([k, v]) => <div class="kv-row"><span>{k}</span><b>{v}</b></div>)}</div>
+  </section>
+
+  <section id="general">
+    <h2><span class="h-num">6</span>General configuration</h2>
+    <p class="sec-lead">These are IBKR's defaults — just confirm them.</p>
+    <div class="kv">{general.map(([k, v]) => <div class="kv-row"><span>{k}</span><b>{v}</b></div>)}</div>
+  </section>
+
+  <section id="create">
+    <h2><span class="h-num">7</span>Continue and create</h2>
+    <ol class="vsteps">
+      <li><div><b>Click Continue</b><p>IBKR shows a review of the query.</p></div></li>
+      <li>
+        <div>
+          <b>Check the review</b>
+          <p>Trades shows <b>Executions</b> and <b>Closed Lots</b>; Open Positions shows <b>Lot</b>; both list <b>Open Date Time</b> among their fields; Format is <b>XML</b>.</p>
+        </div>
+      </li>
+      <li><div><b>Click Create</b><p>The query is saved as IndiaTax. You never need to set it up again.</p></div></li>
+    </ol>
   </section>
 
   <section id="run">
-    <h2><span class="h-icon"><Icon name="calendar" size={18} /></span>Run it twice</h2>
+    <h2><span class="h-num">8</span>Run it twice</h2>
     <p class="sec-lead">
-      Schedule FA reports the <b>calendar year</b>; capital gains, dividends and the foreign tax credit report the <b>financial year</b>.
-      IBKR allows 365 days per run, so run the saved query with two custom date ranges and download each XML.
+      Schedule FA covers the <b>calendar year</b>; capital gains, dividends and the foreign tax credit cover the <b>financial year</b>.
+      Each run is limited to 365 days, so run the query once for each.
     </p>
+    <ol class="vsteps">
+      <li><div><b>Click the blue Run arrow next to IndiaTax</b></div></li>
+      <li><div><b>Period: Custom Date Range</b><p>Not “Last Business Day” — that exports a single day. Enter the From and To dates below.</p></div></li>
+      <li><div><b>Format: XML, then Run</b><p>Save the downloaded file. Repeat for the second date range.</p></div></li>
+    </ol>
     <div class="run-grid">
-      {years.map((y) => (
+      {runs.map((y) => (
         <div class="run-card">
           <header><b>{y.label}</b><span class="badge">{y.sub}</span></header>
           <div class="run-line"><Icon name="calendar" size={18} /><span><b>{y.cy[0]} → {y.cy[1]}</b>Run 1 · Schedule FA</span></div>
@@ -153,14 +200,34 @@ const toc = [
         </div>
       ))}
     </div>
+    <p class="note-line"><Icon name="info" size={16} /><span>For a year still in progress, end on the latest date IBKR allows (the previous business day).</span></p>
+  </section>
+
+  <section id="upload">
+    <h2><span class="h-num">9</span>Upload both files</h2>
     <div class="callout accent">
-      <Icon name="arrow-right" />
+      <Icon name="upload" />
       <div>
-        <b>Then drop both files into the tool.</b>
-        <p>Click the run (▶) icon on the query, choose Custom Date Range, run, and download. Overlapping periods are merged without double counting.</p>
+        <b>Drop both XML files into the tool.</b>
+        <p>It checks every section and field you exported and names anything missing. Overlapping periods are merged without double counting.</p>
       </div>
       <a class="btn primary sm" href={base}>Open the tool</a>
     </div>
+  </section>
+
+  <section id="ai">
+    <h2><span class="h-icon"><Icon name="sparkle" size={18} /></span>Alternative: Configure with AI</h2>
+    <details class="alt">
+      <summary>Use IBKR's AI to pick the sections, then fix the fields<Icon name="chevron-right" size={18} /></summary>
+      <div class="alt-body">
+        <p>In Flex Queries, click <b>Configure with AI</b>, paste this prompt and click Generate Flex Query. Each prompt builds a whole new query, so send only this one.</p>
+        <div class="prompt">
+          <div class="prompt-head"><b>Prompt · {aiPrompt.length}/200</b><button class="btn sm" data-copy={aiPrompt}><Icon name="copy" size={16} /><span>Copy</span></button></div>
+          <p>{aiPrompt}</p>
+        </div>
+        <p>The AI keeps a short default field list even when asked for all fields. Click <b>Edit Manually</b>, press <b>Select All</b> in every section, check the Query Name is <code>IndiaTax</code>, then Save — and continue from step 8. See IBKR's <a href="https://www.ibkrguides.com/clientportal/configure-flex-with-ai.htm">Configure Flex with AI</a> instructions.</p>
+      </div>
+    </details>
   </section>
 
   <section id="faq">
@@ -168,28 +235,91 @@ const toc = [
     <div class="faq">
       <details>
         <summary>Why not the regular Activity Statement?<Icon name="chevron-right" size={18} /></summary>
-        <p>It summarises positions per stock and leaves out each lot's purchase date and the lot every sale closed. Schedule FA needs one row per lot and capital gains need the true holding period of each lot.</p>
+        <p>It summarises holdings per stock, without each lot's purchase date, and has no daily prices or cash balances. Schedule FA needs one row per lot with its peak value; only a Flex Query has that.</p>
+      </details>
+      <details>
+        <summary>I already created a query. Do I start again?<Icon name="chevron-right" size={18} /></summary>
+        <p>No. Click the query's edit (pencil) icon, add any missing sections from step 3, press Select All in each, and save.</p>
       </details>
       <details>
         <summary>How far back can I export?<Icon name="chevron-right" size={18} /></summary>
-        <p>Flex Queries cover the four previous calendar years plus the current one. Lots bought earlier still appear in Open Positions with their original open date and cost.</p>
+        <p>Four previous calendar years plus the current one. Lots bought earlier still appear in Open Positions with their original open date and cost.</p>
       </details>
       <details>
         <summary>What about purchases before 2020?<Icon name="chevron-right" size={18} /></summary>
-        <p>The tool's SBI rate archive starts in January 2020. For older dates it asks you to type in the SBI TT buying rate, which your bank or CA can provide.</p>
+        <p>The SBI rate archive starts in January 2020. For older dates the tool asks you to type in the SBI TT buying rate.</p>
       </details>
       <details>
         <summary>I trade options or futures. Are they covered?<Icon name="chevron-right" size={18} /></summary>
-        <p>No. Only stocks and ETFs are computed. Other trades are listed as warnings so you can report them separately with your CA.</p>
+        <p>No. Only stocks and ETFs are computed. Other trades are listed as warnings so you can report them with your CA.</p>
       </details>
       <details>
         <summary>Is my file safe?<Icon name="chevron-right" size={18} /></summary>
-        <p>The XML contains your account number and full trading history. This site has no server: the file is read by JavaScript in your browser, and the page's security policy blocks it from contacting any other site. You can turn off Wi-Fi after the page loads and it still works.</p>
-      </details>
-      <details>
-        <summary>Can I see the output first?<Icon name="chevron-right" size={18} /></summary>
-        <p>Yes — on the <a href={base}>tool page</a>, choose “See it with sample data”. It is a fictional account.</p>
+        <p>The XML has your account number and trading history. This site has no server: the file is read in your browser and the page's security policy blocks it from contacting any other site.</p>
       </details>
     </div>
   </section>
+
+  <script>
+    const boxes = [...document.querySelectorAll<HTMLInputElement>('[data-tick]')];
+    const count = document.querySelector('[data-tick-count]');
+    const update = () => {
+      const n = boxes.filter((b) => b.checked).length;
+      if (count) {
+        count.textContent = `${n} of ${boxes.length} done`;
+        count.classList.toggle('success', n === boxes.length);
+      }
+    };
+    boxes.forEach((b) => b.addEventListener('change', update));
+  </script>
+
+  <style>
+    .form-row { display: grid; grid-template-columns: 160px 1fr; gap: 16px; align-items: center; padding: 14px 16px; background: var(--surface); border: 1px solid var(--border); border-radius: var(--r-lg); box-shadow: var(--sh-1); }
+    .form-label { font-size: var(--fs-ui); color: var(--text-2); }
+    .form-value { display: flex; align-items: center; gap: 12px; }
+    code.big { font-size: 15px; padding: 4px 10px; }
+    .note-line { display: flex; gap: 8px; align-items: flex-start; margin-top: 10px; font-size: 13px; }
+    .note-line .icon { color: var(--text-3); flex: none; margin-top: 2px; }
+    .note-line span { min-width: 0; overflow-wrap: anywhere; }
+
+    .form-map { margin: 0 0 20px; padding: 14px; background: var(--surface); border: 1px solid var(--border); border-radius: var(--r-lg); box-shadow: var(--sh-1); }
+    .form-map figcaption { display: flex; align-items: center; gap: 6px; font-size: var(--fs-caption); font-weight: 600; color: var(--text-2); margin-bottom: 10px; text-transform: uppercase; letter-spacing: 0.04em; }
+    .map-cols { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
+    .map-cols ul { list-style: none; margin: 0; padding: 0; display: grid; gap: 4px; align-content: start; }
+    .map-cols li { display: flex; align-items: center; gap: 6px; min-height: 26px; padding: 3px 8px; border: 1px solid var(--border); border-radius: var(--r-xs); font-size: 11.5px; color: var(--text-3); }
+    .map-cols li.on { border-color: var(--accent); background: var(--accent-soft); color: var(--accent-soft-text); font-weight: 600; }
+    .map-n { display: inline-grid; place-items: center; width: 18px; height: 18px; border-radius: 50%; background: var(--accent); color: var(--on-accent); font-size: 10.5px; font-weight: 700; flex: none; }
+
+    .tick-head { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; }
+    .ticks { list-style: none; margin: 0; padding: 0; display: grid; gap: 8px; }
+    .tick { display: grid; grid-template-columns: 20px 28px 1fr; gap: 12px; align-items: start; padding: 14px 16px; background: var(--surface); border: 1px solid var(--border); border-radius: var(--r-lg); cursor: pointer; transition: border-color var(--dur-1), background var(--dur-1); }
+    .tick:hover { border-color: var(--border-strong); }
+    .tick input { width: 18px; height: 18px; margin: 4px 0 0; accent-color: var(--accent); }
+    .tick:has(input:checked) { background: var(--success-soft); border-color: var(--success); }
+    .tick:has(input:checked) .tick-n { background: var(--success); }
+    .tick-n { display: grid; place-items: center; width: 26px; height: 26px; border-radius: 50%; background: var(--accent); color: var(--on-accent); font-size: 13px; font-weight: 600; }
+    .tick-body { display: grid; gap: 4px; min-width: 0; }
+    .tick-top { display: flex; justify-content: space-between; gap: 8px; align-items: center; }
+    .tick-top b { font-size: var(--fs-ui); }
+    .tick-why { font-size: 13px; color: var(--text-2); }
+    .tick-steps { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 4px; }
+    .step-pill { font-size: 12.5px; padding: 3px 8px; border-radius: var(--r-sm); background: var(--surface-sunken); color: var(--text-2); }
+    .step-pill b { color: var(--accent-soft-text); margin-right: 4px; }
+
+    .alt { background: var(--surface); border: 1px solid var(--border); border-radius: var(--r-lg); padding: 0 16px; }
+    .alt summary { display: flex; justify-content: space-between; align-items: center; gap: 12px; padding: 14px 0; cursor: pointer; font-weight: 500; font-size: var(--fs-ui); list-style: none; }
+    .alt summary::-webkit-details-marker { display: none; }
+    .alt summary .icon { color: var(--text-3); transition: transform var(--dur-2); }
+    .alt[open] summary .icon { transform: rotate(90deg); }
+    .alt-body { padding-bottom: 14px; display: grid; gap: 8px; }
+    .alt-body p { font-size: var(--fs-ui); }
+
+    @media (max-width: 640px) {
+      .map-cols { grid-template-columns: 1fr; }
+      .map-cols li:not(.on) { display: none; }
+      .form-row { grid-template-columns: 1fr; gap: 6px; }
+      .tick { grid-template-columns: 20px 1fr; }
+      .tick-n { display: none; }
+    }
+  </style>
 </Docs>

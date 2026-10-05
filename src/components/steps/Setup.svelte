@@ -132,8 +132,13 @@
         </div>
       {/each}
     </div>
+    <a class="guide-cta" href={`${BASE}guide/`}>
+      <span class="gc-icon"><Icon name="book" /></span>
+      <span><b>New to Flex Queries? Follow the step-by-step guide</b><small>Name, the 9 sections to tick with Select All, settings, then the two custom-date runs — about 10 minutes, once.</small></span>
+      <Icon name="arrow-right" />
+    </a>
     <details class="ai">
-      <summary><Icon name="sparkle" size={18} />Quickest: use IBKR's <b>Configure with AI</b> to build the query</summary>
+      <summary><Icon name="sparkle" size={18} />Alternative: let IBKR's <b>Configure with AI</b> pick the sections</summary>
       <p class="muted">Performance &amp; Reports → Flex Queries → Configure with AI. Paste this one prompt and click Generate Flex Query — each prompt builds a whole new query, so don't send a second.</p>
       <div class="prompt">
         <div class="prompt-head"><b>Prompt · {PROMPT.length}/200</b><CopyButton value={PROMPT} label="prompt" /></div>
@@ -321,6 +326,12 @@
   .run div { display: grid; gap: 2px; }
   .run span { font-size: var(--fs-ui); }
   .run small { color: var(--text-3); font-size: var(--fs-caption); }
+  .guide-cta { display: grid; grid-template-columns: 40px 1fr auto; gap: 12px; align-items: center; margin-top: 14px; padding: 12px 14px; border: 1px solid var(--accent-line); background: var(--accent-soft); border-radius: var(--r-md); color: var(--text); text-decoration: none; }
+  .guide-cta:hover { border-color: var(--accent); }
+  .guide-cta span:nth-child(2) { display: grid; gap: 2px; font-size: var(--fs-ui); }
+  .guide-cta small { color: var(--text-2); font-size: 13px; }
+  .gc-icon { display: grid; place-items: center; width: 40px; height: 40px; border-radius: var(--r-md); background: var(--surface); color: var(--accent); }
+  .guide-cta > :global(.icon) { color: var(--accent); }
   .ai { margin-top: 14px; border: 1px solid var(--border); border-radius: var(--r-md); padding: 0 14px; }
   .ai summary { display: flex; align-items: center; gap: 8px; cursor: pointer; padding: 12px 0; font-size: var(--fs-ui); list-style: none; }
   .ai summary::-webkit-details-marker { display: none; }
