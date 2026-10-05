@@ -1,5 +1,5 @@
 import Decimal from 'decimal.js';
-import type { IsoDate } from '../dates';
+import { formatDate, type IsoDate } from '../dates';
 import type { Account, FlexData } from '../flex/model';
 import { capitalGains, type CgResult } from './cg';
 import { Collector, type Settings, type Warning } from './common';
@@ -77,12 +77,13 @@ export function buildReport(data: FlexData, account: Account, ayStart: number, s
   const ty = taxYear(ayStart);
   const log = new Collector();
   const cov = coverage(data, account.accountId);
+  const covered = cov.length ? cov.map((r) => (r.from === r.to ? `only ${formatDate(r.from)}` : `${formatDate(r.from)} – ${formatDate(r.to)}`)).join(', ') : 'no dates';
 
   if (!covers(cov, ty.cyStart, ty.cyEnd)) {
-    log.add('warn', 'Coverage', `Schedule FA needs data for the whole of ${ty.cyStart} – ${ty.cyEnd}; your files don't fully cover it. Upload the calendar-year export.`);
+    log.add('error', 'Coverage', `Schedule FA needs ${formatDate(ty.cyStart)} – ${formatDate(ty.cyEnd)}, but your files cover ${covered}. In IBKR, run the query with a Custom Date Range of exactly those dates and add that file.`);
   }
   if (!covers(cov, ty.fyStart, ty.fyEnd)) {
-    log.add('warn', 'Coverage', `Capital gains and income need ${ty.fyStart} – ${ty.fyEnd}; your files don't fully cover it. Upload the financial-year export.`);
+    log.add('error', 'Coverage', `Capital gains, dividends and the foreign tax credit need ${formatDate(ty.fyStart)} – ${formatDate(ty.fyEnd)}, but your files cover ${covered}. In IBKR, run the query with a Custom Date Range of exactly those dates and add that file.`);
   }
   for (const c of sectionChecklist(data)) {
     if (c.required && !c.present) {

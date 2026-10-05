@@ -211,6 +211,12 @@
 
     {#if app.data}
       <h3 class="sub-h">Coverage</h3>
+      <p class="cov-text">
+        Your files cover <b>{cov.length ? cov.map((r) => (r.from === r.to ? `only ${date(r.from)}` : `${date(r.from)} – ${date(r.to)}`)).join(', ') : 'no dates'}</b>.
+        {#if !windows.every((w) => covered(w.from, w.to))}
+          Run the query in IBKR with a <b>Custom Date Range</b> for each period marked “Gaps” — the query's default period exports only one day.
+        {/if}
+      </p>
       <div class="coverage">
         {#each windows as w}
           {@const ok = covered(w.from, w.to)}
@@ -343,6 +349,7 @@
 
   .sub-h { font-size: var(--fs-ui); margin: 24px 0 10px; }
   .coverage { display: grid; gap: 10px; }
+  .cov-text { font-size: 13px; color: var(--text-2); margin: -4px 0 12px; }
   .cov-row { display: grid; grid-template-columns: 220px 1fr auto; gap: 14px; align-items: center; }
   .cov-label { display: grid; font-size: 13px; }
   .cov-label .faint { font-size: var(--fs-caption); }

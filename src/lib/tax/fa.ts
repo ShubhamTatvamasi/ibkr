@@ -61,8 +61,12 @@ export function scheduleFA(data: FlexData, account: Account, ty: TaxYear, settin
   const { cyStart, cyEnd } = ty;
   const area = 'Schedule FA';
   const ledger = buildLedger(data, account.accountId, cyEnd);
+  const opFields = data.fields.get('OpenPositions');
   if (!ledger.snapshotDate) {
-    log.add('error', area, 'No Open Positions (Lot level) found — Schedule FA A3 cannot be built. Add the Open Positions section with Options = Lot.');
+    // A missing Open Date Time field is already reported as the root cause; don't repeat it.
+    if (!opFields || opFields.has('openDateTime')) {
+      log.add('error', area, 'No Open Positions (Lot level) found — Schedule FA A3 cannot be built. Add the Open Positions section with Options = Lot.');
+    }
   } else if (ledger.snapshotDate < cyEnd) {
     log.add('error', area, `Latest open-positions snapshot is ${ledger.snapshotDate}, before 31 Dec. Upload an export that ends on or after ${cyEnd}.`);
   }
@@ -278,7 +282,7 @@ function custodialAccount(
       row.peak = start.gt(end) ? { inr: start, date: ty.cyStart } : { inr: end, date: ty.cyEnd };
       log.add('warn', area, 'Peak cash balance approximated from opening/closing cash only. Add the Statement of Funds section for the true daily peak.');
     } else {
-      log.add('error', area, 'No cash data (Statement of Funds or Cash Report ending 31 Dec) — A2 peak and closing balances are missing.');
+      log.add('error', area, `No cash data for ${ty.cyStart.slice(0, 4)} (Statement of Funds, or a Cash Report ending 31 Dec) — A2 peak and closing balances are missing. This is usually fixed by the calendar-year export.`);
     }
   }
   if (row.peak && row.peak.inr.lt(0)) row.peak = { ...row.peak, inr: new Decimal(0) };

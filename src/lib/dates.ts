@@ -18,3 +18,11 @@ export function lastDayOfPrecedingMonth(d: IsoDate): IsoDate {
 export function daysBetween(from: IsoDate, to: IsoDate): number {
   return Math.round((Date.parse(to) - Date.parse(from)) / 86_400_000);
 }
+
+const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+
+/** "1 Jan 2025" — for user-facing messages. */
+export function formatDate(d: IsoDate): string {
+  const [y, m, day] = d.split('-');
+  return `${Number(day)} ${MONTHS[Number(m) - 1]} ${y}`;
+}
