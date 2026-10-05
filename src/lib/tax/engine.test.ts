@@ -161,3 +161,38 @@ describe('exports built by IBKR "Configure with AI" (default field subsets)', ()
     expect(errors).toContain('Open Positions (Lot level) is missing the field Open Date Time');
   });
 });
+
+describe('periods for a new account and a year in progress', () => {
+  const acct = { accountId: 'U1', name: '', baseCurrency: 'USD', dateFunded: '2026-07-22' };
+  const cov = [{ from: '2026-07-22', to: '2026-10-02' }];
+
+  it('needs data only from funding to the latest export while the year runs', async () => {
+    const { period } = await import('./engine');
+    const p = period(cov, acct, '2026-01-01', '2026-12-31', '2026-10-05');
+    expect(p).toMatchObject({ needFrom: '2026-07-22', needTo: '2026-10-02', inProgress: true, notApplicable: false, covered: true });
+  });
+
+  it('marks earlier years as not applicable', async () => {
+    const { period } = await import('./engine');
+    expect(period(cov, acct, '2025-04-01', '2026-03-31', '2026-10-05')).toMatchObject({ notApplicable: true, covered: true });
+  });
+
+  it('still requires the full window once the year is over', async () => {
+    const { period } = await import('./engine');
+    const p = period(cov, { ...acct, dateFunded: '2025-01-10' }, '2025-04-01', '2026-03-31', '2026-10-05');
+    expect(p).toMatchObject({ needFrom: '2025-04-01', needTo: '2026-03-31', inProgress: false, covered: false });
+  });
+});
+
+describe('one order filled as several executions', () => {
+  it('merges lots sharing an open time with a weighted cost', async () => {
+    const { buildLedger } = await import('./lots');
+    const row = (q: string, cost: string) =>
+      `<OpenPosition accountId="U1" currency="USD" assetCategory="STK" symbol="ETF" conid="9" reportDate="20261002" position="${q}" markPrice="200" costBasisMoney="${cost}" levelOfDetail="LOT" openDateTime="20260722;110511" />`;
+    const xml = `<FlexQueryResponse type="AF"><FlexStatements><FlexStatement accountId="U1" fromDate="20260722" toDate="20261002"><OpenPositions>${row('1', '190.27')}${row('1', '188.58')}${row('0.6408', '120.842064')}</OpenPositions></FlexStatement></FlexStatements></FlexQueryResponse>`;
+    const lots = buildLedger(parseFlexXml(xml, 'x.xml'), 'U1', '2026-12-31').lots;
+    expect(lots).toHaveLength(1);
+    expect(lots[0].snapshotQty.toString()).toBe('2.6408');
+    expect(lots[0].unitCost.mul(lots[0].snapshotQty).toDecimalPlaces(6).toString()).toBe('499.692064');
+  });
+});

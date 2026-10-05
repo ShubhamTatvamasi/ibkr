@@ -52,6 +52,33 @@
     return cov.some((r) => r.from <= from && r.to >= to);
   }
 
+  let dragKey = $state('');
+  const slots = $derived([
+    { key: 'fa', title: 'Calendar-year file', purpose: 'Schedule FA (foreign assets)', from: app.year.cyStart, to: app.year.cyEnd, p: app.report?.periods.fa },
+    { key: 'fy', title: 'Financial-year file', purpose: 'Capital gains, dividends, foreign tax credit', from: app.year.fyStart, to: app.year.fyEnd, p: app.report?.periods.fy },
+  ]);
+  type Slot = (typeof slots)[number];
+
+  function filesFor(from: IsoDate, to: IsoDate) {
+    return [...new Set((app.data?.statements ?? []).filter((s) => s.toDate >= from && s.fromDate <= to).map((s) => s.fileName))];
+  }
+
+  function slotState(sl: Slot): { tone: 'empty' | 'ok' | 'bad' | 'na' | 'prov'; label: string; icon: string; note: string } {
+    if (!app.data)
+      return {
+        tone: 'empty',
+        label: 'Needed',
+        icon: 'calendar',
+        note: sl.to >= today ? `Run the query with Custom Date Range from ${date(sl.from)} to the latest date IBKR allows — this period is still running.` : `Run the query with Custom Date Range ${date(sl.from)} → ${date(sl.to)}.`,
+      };
+    const p = sl.p;
+    if (!p) return covered(sl.from, sl.to) ? { tone: 'ok', label: 'Covered', icon: 'check-circle', note: 'Your files cover this period.' } : { tone: 'bad', label: 'Gaps', icon: 'warn', note: 'Your files don\'t cover this whole period.' };
+    if (p.notApplicable) return { tone: 'na', label: 'Not needed', icon: 'info', note: 'Your account was funded after this period ended — nothing to report for it.' };
+    if (!p.covered) return { tone: 'bad', label: 'Gaps', icon: 'warn', note: `Run the query with Custom Date Range ${date(p.needFrom)} → ${date(p.needTo)} and add that file.` };
+    if (p.inProgress) return { tone: 'prov', label: 'Provisional', icon: 'clock', note: `This period is still running. Figures are as of ${date(p.needTo)}; export again after ${date(p.to)} for final numbers.` };
+    return { tone: 'ok', label: 'Covered', icon: 'check-circle', note: p.needFrom > p.from ? `Covered from your account's start on ${date(p.needFrom)}.` : 'Your files cover this whole period.' };
+  }
+
   const windows = $derived([
     { key: 'cy', title: 'Calendar-year file', purpose: 'Schedule FA (foreign assets)', from: app.year.cyStart, to: app.year.cyEnd },
     { key: 'fy', title: 'Financial-year file', purpose: 'Capital gains, dividends, foreign tax credit', from: app.year.fyStart, to: app.year.fyEnd },
@@ -157,40 +184,70 @@
   <section class="card">
     <div class="card-head">
       <div>
-        <h2><span class="num-step">3</span>Add the XML files</h2>
-        <p>Both at once is fine. Overlapping periods are merged without double counting.</p>
+        <h2><span class="num-step">3</span>Add your two files</h2>
+        <p>One for each period. Drop a file on either slot — the tool reads its dates and fills whichever period it covers.</p>
       </div>
       {#if !app.data}<button class="link-btn" onclick={() => app.loadSample()}>Use sample data</button>{/if}
     </div>
+    <input bind:this={input} type="file" accept=".xml,text/xml,application/xml" multiple hidden onchange={(e) => app.addFiles(e.currentTarget.files)} />
 
-    <div
-      class="drop"
-      class:dragging
-      role="button"
-      tabindex="0"
-      aria-label="Add IBKR Flex Query XML files"
-      onclick={() => input.click()}
-      onkeydown={(e) => (e.key === 'Enter' || e.key === ' ') && (e.preventDefault(), input.click())}
-      ondragover={(e) => {
-        e.preventDefault();
-        dragging = true;
-      }}
-      ondragleave={() => (dragging = false)}
-      ondrop={(e) => {
-        e.preventDefault();
-        dragging = false;
-        app.addFiles(e.dataTransfer?.files ?? null);
-      }}
-    >
-      <span class="drop-icon"><Icon name="upload" size={24} /></span>
-      <b>{dragging ? 'Release to add' : 'Drop Flex Query XML files here'}</b>
-      <span class="muted">or <span class="link-like">choose files</span> · .xml</span>
-      <input bind:this={input} type="file" accept=".xml,text/xml,application/xml" multiple hidden onchange={(e) => app.addFiles(e.currentTarget.files)} />
+    <div class="slots">
+      {#each slots as sl}
+        {@const st = slotState(sl)}
+        {@const files = filesFor(sl.from, sl.to)}
+        <div
+          class="slot {st.tone}"
+          class:dragging={dragKey === sl.key}
+          role="group"
+          aria-label={`${sl.title}: ${st.label}`}
+          ondragover={(e) => {
+            e.preventDefault();
+            dragKey = sl.key;
+          }}
+          ondragleave={() => (dragKey = '')}
+          ondrop={(e) => {
+            e.preventDefault();
+            dragKey = '';
+            app.addFiles(e.dataTransfer?.files ?? null);
+          }}
+        >
+          <div class="slot-head">
+            <span class="slot-icon"><Icon name={st.icon} size={20} /></span>
+            <div>
+              <b>{sl.title}</b>
+              <span class="faint">{sl.purpose}</span>
+            </div>
+            <span class="badge {st.tone === 'ok' ? 'success' : st.tone === 'bad' ? 'danger' : st.tone === 'na' ? '' : 'accent'}">{st.label}</span>
+          </div>
+          <div class="slot-dates num">
+            {#if sl.p?.notApplicable}
+              <span>Period</span><b>{date(sl.from)} → {date(sl.to)}</b>
+            {:else}
+              <span>Needs</span><b>{date(sl.p?.needFrom ?? sl.from)} → {sl.p ? date(sl.p.needTo) : sl.to >= today ? 'latest available date' : date(sl.to)}</b>
+            {/if}
+          </div>
+          {#if app.data}
+            <div class="cov-bar" aria-hidden="true">
+              {#each segments(sl.from, sl.to) as g}<span style:left={`${g.left}%`} style:width={`${g.width}%`}></span>{/each}
+            </div>
+            <div class="cov-axis num faint"><span>{date(sl.from)}</span><span>{date(sl.to)}</span></div>
+          {/if}
+          <p class="slot-note">{st.note}</p>
+          {#if files.length}
+            <div class="slot-files">{#each files as f}<span class="chip"><Icon name="file-table" size={14} />{f}</span>{/each}</div>
+          {/if}
+          <button class="btn sm slot-btn" class:primary={!app.data} onclick={() => input.click()}><Icon name="upload" size={16} />{files.length ? 'Add another file' : 'Choose file'}</button>
+        </div>
+      {/each}
     </div>
+    {#if app.data && slots.every((sl) => filesFor(sl.from, sl.to).length) && app.files.length === 1}
+      <p class="one-file"><Icon name="info" size={16} /><span>One file covers both periods — that's fine when your account is newer than both periods' start dates.</span></p>
+    {/if}
 
     {#if app.busy}<p class="muted status" role="status">Reading files…</p>{/if}
 
     {#if app.files.length}
+      <h3 class="sub-h">Files</h3>
       <ul class="files">
         {#each app.files as f}
           {@const st = app.data?.statements.filter((s) => s.fileName === f.name) ?? []}
@@ -202,7 +259,7 @@
                 <span class="f-err">{f.error}</span>
               {:else}
                 <span class="f-meta">
-                  {#each st as s}<span class="badge success"><Icon name="check" size={12} />{s.accountId} · {date(s.fromDate)} → {date(s.toDate)}</span>{/each}
+                  {#each st as s}<span class="badge">{s.accountId} · {date(s.fromDate)} → {date(s.toDate)}</span>{/each}
                   <span class="faint">{(f.size / 1024).toFixed(0)} KB</span>
                 </span>
               {/if}
@@ -215,27 +272,6 @@
     {/if}
 
     {#if app.data}
-      <h3 class="sub-h">Coverage</h3>
-      <p class="cov-text">
-        Your files cover <b>{cov.length ? cov.map((r) => (r.from === r.to ? `only ${date(r.from)}` : `${date(r.from)} – ${date(r.to)}`)).join(', ') : 'no dates'}</b>.
-        {#if !windows.every((w) => covered(w.from, w.to))}
-          Run the query in IBKR with a <b>Custom Date Range</b> for each period marked “Gaps” — the query's default period exports only one day.
-        {/if}
-      </p>
-      <div class="coverage">
-        {#each windows as w}
-          {@const ok = covered(w.from, w.to)}
-          <div class="cov-row">
-            <div class="cov-label"><b>{w.title}</b><span class="faint">{w.purpose}</span></div>
-            <div class="cov-bar" aria-label={`${w.title}: ${ok ? 'fully covered' : 'gaps'}`}>
-              {#each segments(w.from, w.to) as s}<span style:left={`${s.left}%`} style:width={`${s.width}%`}></span>{/each}
-            </div>
-            <span class="badge {ok ? 'success' : 'danger'}"><Icon name={ok ? 'check' : 'warn'} size={12} />{ok ? 'Covered' : 'Gaps'}</span>
-          </div>
-        {/each}
-        <div class="cov-axis num faint"><span>{date(app.year.cyStart)}</span><span>{date(app.year.fyEnd)}</span></div>
-      </div>
-
       <h3 class="sub-h">Sections found</h3>
       <div class="checks">
         {#each [...required, ...optional] as c}
@@ -339,6 +375,31 @@
   .ai[open] { padding-bottom: 12px; }
   .ai .muted { font-size: 13px; }
 
+  .slots { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 12px; }
+  .slot { display: grid; gap: 10px; align-content: start; padding: 16px; border: 1.5px dashed var(--border-strong); border-radius: var(--r-lg); background: var(--surface); transition: background var(--dur-1), border-color var(--dur-1); }
+  .slot.dragging { border-style: solid; border-color: var(--accent); background: var(--accent-soft); }
+  .slot.ok { border-style: solid; border-color: var(--success); }
+  .slot.prov { border-style: solid; border-color: var(--accent-line); }
+  .slot.bad { border-style: solid; border-color: var(--danger); background: var(--danger-soft); }
+  .slot.na { border-style: solid; border-color: var(--border); background: var(--surface-sunken); }
+  .slot-head { display: grid; grid-template-columns: 36px 1fr auto; gap: 10px; align-items: center; }
+  .slot-head > div { display: grid; font-size: var(--fs-ui); }
+  .slot-head .faint { font-size: var(--fs-caption); }
+  .slot-icon { display: grid; place-items: center; width: 36px; height: 36px; border-radius: var(--r-md); background: var(--surface-sunken); color: var(--text-2); }
+  .slot.ok .slot-icon { background: var(--success-soft); color: var(--success); }
+  .slot.prov .slot-icon { background: var(--accent-soft); color: var(--accent); }
+  .slot.bad .slot-icon { background: var(--surface); color: var(--danger); }
+  .slot-dates { display: flex; gap: 8px; align-items: baseline; font-size: var(--fs-ui); }
+  .slot-dates span { color: var(--text-3); font-size: var(--fs-caption); text-transform: uppercase; letter-spacing: 0.04em; font-weight: 600; }
+  .slot .cov-bar { background: var(--surface-sunken); }
+  .slot.bad .cov-bar { background: var(--surface); }
+  .cov-axis { display: flex; justify-content: space-between; font-size: 11px; margin-top: -6px; }
+  .slot-note { font-size: 13px; color: var(--text-2); }
+  .slot-files { display: flex; flex-wrap: wrap; gap: 6px; }
+  .chip { display: inline-flex; align-items: center; gap: 4px; font-size: 12px; padding: 2px 8px; border-radius: var(--r-pill); background: var(--surface-sunken); font-family: var(--font-mono); }
+  .slot-btn { justify-self: start; }
+  .one-file { display: flex; gap: 8px; align-items: flex-start; margin-top: 12px; font-size: 13px; color: var(--text-2); }
+  .one-file :global(.icon) { color: var(--info); flex: none; margin-top: 2px; }
   .drop { display: grid; justify-items: center; gap: 6px; padding: 32px 16px; border: 1.5px dashed var(--border-strong); border-radius: var(--r-lg); text-align: center; cursor: pointer; transition: background var(--dur-1), border-color var(--dur-1); }
   .drop:hover { background: var(--surface-hover); }
   .drop.dragging { border-style: solid; border-color: var(--accent); background: var(--accent-soft); }
@@ -366,7 +427,6 @@
   .cov-label .faint { font-size: var(--fs-caption); }
   .cov-bar { position: relative; height: 12px; border-radius: var(--r-pill); background: var(--danger-soft); overflow: hidden; }
   .cov-bar span { position: absolute; top: 0; bottom: 0; background: var(--success); }
-  .cov-axis { display: none; }
   .checks { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 8px; }
   .check { display: flex; gap: 10px; padding: 10px 12px; border-radius: var(--r-md); background: var(--surface-sunken); }
   .check div { display: grid; font-size: 13px; }

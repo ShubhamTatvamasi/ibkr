@@ -21,7 +21,7 @@
     <Icon name="calendar" />
     <div>
       <b>Schedule FA uses the calendar year {year}, not the financial year.</b>
-      <p>Your IBKR account is a custodial account. Peak and closing are its cash balance in rupees; the shares themselves go in Table A3.{entries.length > 1 ? ` The portal takes one “nature of amount” per row, so add the account ${entries.length} times — once per nature below.` : ''}</p>
+      <p>{#if r.periods.fa.inProgress}<b>Provisional:</b> {year} isn't over, so balances are as of {date(r.fa.closeDate)}. {/if}Your IBKR account is a custodial account. Peak and closing are its cash balance in rupees; the shares themselves go in Table A3.{entries.length > 1 ? ` The portal takes one “nature of amount” per row, so add the account ${entries.length} times — once per nature below.` : ''}</p>
     </div>
   </div>
 </ScheduleHead>
@@ -36,7 +36,7 @@
     <PortalField id={`fa2:${i}:status`} label="7 · Status" display="Owner" text />
     <PortalField id={`fa2:${i}:open`} label="8 · Account opening date" display={date(a.account.dateOpened)} copy={portalDate(a.account.dateOpened)} tone={a.account.dateOpened ? undefined : 'warn'} />
     <PortalField id={`fa2:${i}:peak`} label="9 · Peak Balance During the Period" display={inr(a.peak?.inr)} copy={raw(a.peak?.inr)} hint={a.peak ? `On ${date(a.peak.date)}` : undefined} />
-    <PortalField id={`fa2:${i}:close`} label="10 · Closing balance" display={inr(a.closing)} copy={raw(a.closing)} hint={`Cash on 31 Dec ${year}`} />
+    <PortalField id={`fa2:${i}:close`} label="10 · Closing balance" display={inr(a.closing)} copy={raw(a.closing)} hint={`Cash on ${date(r.fa.closeDate)}`} />
     <PortalField id={`fa2:${i}:nature`} label="11a · Nature of Amount" display={`${n.code} — ${n.nature}`} text />
     <PortalField id={`fa2:${i}:amt`} label="11b · Amount" display={inr(n.inr)} copy={raw(n.inr)} hint={r.settings.faIncomeRate === 'txn' ? 'Gross, each credit at its own date’s SBI rate' : 'Gross, at the 31 December SBI rate'} />
   </FieldGroup>

@@ -132,7 +132,8 @@ function parseStatement(st: Node, fileName: string, d: FlexData) {
   const once = (key: string) => (keys.has(key) ? false : (keys.add(key), true));
 
   for (const section of st.children) {
-    if (section.children.length > 0 || section.tag === 'AccountInformation') d.sections.add(section.tag);
+    // A selected section with nothing in the period is still exported as an empty element.
+    d.sections.add(section.tag);
     const seen = d.fields.get(section.tag) ?? new Set<string>();
     for (const k of Object.keys(section.attrs)) if (section.tag === 'AccountInformation') seen.add(k);
     for (const row of section.children) {
@@ -306,6 +307,7 @@ function addAccount(d: FlexData, a: Attrs) {
     name: a.name ?? '',
     baseCurrency: a.currency ?? 'USD',
     dateOpened: toIsoDate(a.dateOpened),
+    dateFunded: toIsoDate(a.dateFunded),
     ibEntity: a.ibEntity || undefined,
   };
   d.accounts.push(acct);

@@ -1,3 +1,4 @@
+import type { IsoDate } from '../dates';
 import Decimal from 'decimal.js';
 import type { Account, CashTxn, FlexData } from '../flex/model';
 import type { Collector, Conversion, Fx, Settings } from './common';
@@ -47,7 +48,8 @@ function countryOf(data: FlexData, t: CashTxn): Country {
   return issuerCountry(t.issuerCountryCode ?? inst?.issuerCountryCode, t.isin ?? inst?.isin);
 }
 
-export function income(data: FlexData, account: Account, ty: TaxYear, settings: Settings, fx: Fx, log: Collector): IncomeResult {
+/** `asOf` is set while the financial year is still running (the 31 March rate doesn't exist yet). */
+export function income(data: FlexData, account: Account, ty: TaxYear, settings: Settings, fx: Fx, log: Collector, asOf?: IsoDate): IncomeResult {
   const inFy = data.cash.filter((t) => t.accountId === account.accountId && inRange(t.date, ty.fyStart, ty.fyEnd));
   const res: IncomeResult = {
     dividends: [],
@@ -83,7 +85,7 @@ export function income(data: FlexData, account: Account, ty: TaxYear, settings: 
       }
     } else if (t.kind === 'interest') {
       const conv = log.convert('Interest', () =>
-        settings.interestRate === 'fyEnd' ? fx.on(t.amount, t.currency, ty.fyEnd) : fx.monthEndBefore(t.amount, t.currency, t.date),
+        settings.interestRate === 'fyEnd' ? fx.on(t.amount, t.currency, asOf ?? ty.fyEnd) : fx.monthEndBefore(t.amount, t.currency, t.date),
       );
       res.interest.push({ txn: t, description: t.description, country: countryOf(data, t), quarter: quarterIndex(t.date), conv, withheldForeign: new Decimal(0) });
       if (conv) res.interestTotalInr = res.interestTotalInr.add(conv.inr);

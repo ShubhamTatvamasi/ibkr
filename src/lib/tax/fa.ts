@@ -55,10 +55,17 @@ export interface FaResult {
   a2: FaA2Row[];
   a3: FaA3Row[];
   snapshotDate?: IsoDate;
+  /** 31 December, or the latest data date while the year is in progress. */
+  closeDate: IsoDate;
 }
 
-export function scheduleFA(data: FlexData, account: Account, ty: TaxYear, settings: Settings, fx: Fx, log: Collector): FaResult {
+/**
+ * `asOf` is set while the calendar year is still in progress: closing values are then taken on that
+ * date (provisional) instead of 31 December.
+ */
+export function scheduleFA(data: FlexData, account: Account, ty: TaxYear, settings: Settings, fx: Fx, log: Collector, asOf?: IsoDate): FaResult {
   const { cyStart, cyEnd } = ty;
+  const closeDate = asOf && asOf < cyEnd ? asOf : cyEnd;
   const area = 'Schedule FA';
   const ledger = buildLedger(data, account.accountId, cyEnd);
   const opFields = data.fields.get('OpenPositions');
@@ -67,8 +74,8 @@ export function scheduleFA(data: FlexData, account: Account, ty: TaxYear, settin
     if (!opFields || opFields.has('openDateTime')) {
       log.add('error', area, 'No Open Positions (Lot level) found — Schedule FA A3 cannot be built. Add the Open Positions section with Options = Lot.');
     }
-  } else if (ledger.snapshotDate < cyEnd) {
-    log.add('error', area, `Latest open-positions snapshot is ${ledger.snapshotDate}, before 31 Dec. Upload an export that ends on or after ${cyEnd}.`);
+  } else if (ledger.snapshotDate < closeDate) {
+    log.add('error', area, `Latest open-positions snapshot is ${ledger.snapshotDate}, before 31 Dec. Upload an export that ends on or after ${closeDate}.`);
   }
 
   const prices = pricesByConid(data, account.accountId);
@@ -78,28 +85,28 @@ export function scheduleFA(data: FlexData, account: Account, ty: TaxYear, settin
   }
 
   const incomeRate = (amount: Decimal, ccy: string, date: IsoDate) =>
-    log.convert(area, () => fx.on(amount, ccy, settings.faIncomeRate === 'cyEnd' ? cyEnd : date));
+    log.convert(area, () => fx.on(amount, ccy, settings.faIncomeRate === 'cyEnd' ? closeDate : date));
 
   const a3: FaA3Row[] = [];
   for (const lot of ledger.lots) {
-    if (lot.openDate > cyEnd) continue;
+    if (lot.openDate > closeDate) continue;
     const qtyStart = lot.openDate >= cyStart ? heldAt(lot, lot.openDate).add(soldOn(lot, lot.openDate)) : heldAt(lot, addDays(cyStart, -1));
-    const soldInYear = lot.closures.filter((c) => inRange(c.closeDate, cyStart, cyEnd));
+    const soldInYear = lot.closures.filter((c) => inRange(c.closeDate, cyStart, closeDate));
     if (qtyStart.isZero() && soldInYear.length === 0) continue;
 
     const inst = data.instruments.get(lot.conid);
     const ctry = issuerCountry(inst?.issuerCountryCode, inst?.isin);
-    const qtyEnd = heldAt(lot, cyEnd);
+    const qtyEnd = heldAt(lot, closeDate);
 
     const initial = log.convert(area, () => fx.on(lot.unitCost.mul(qtyStart), lot.currency, lot.openDate));
 
     // Peak: max over days of qty held × price × that day's TTBR (the INR series, not the USD one).
     const series = prices.get(lot.conid) ?? [];
-    const candidates: { date: IsoDate; price: Decimal }[] = series.filter((p) => inRange(p.date, cyStart, cyEnd));
+    const candidates: { date: IsoDate; price: Decimal }[] = series.filter((p) => inRange(p.date, cyStart, closeDate));
     if (lot.openDate >= cyStart) candidates.push({ date: lot.openDate, price: lot.unitCost });
     for (const c of soldInYear) candidates.push({ date: c.closeDate, price: c.proceeds.div(c.quantity) });
-    const closingPrice = priceAt(series, cyEnd) ?? (ledger.snapshotDate === cyEnd ? lot.snapshotMark : undefined);
-    if (closingPrice) candidates.push({ date: cyEnd, price: closingPrice });
+    const closingPrice = priceAt(series, closeDate) ?? (ledger.snapshotDate === closeDate ? lot.snapshotMark : undefined);
+    if (closingPrice) candidates.push({ date: closeDate, price: closingPrice });
     if (lot.openDate < cyStart) {
       const opening = priceAt(series, addDays(cyStart, -1));
       if (opening) candidates.push({ date: cyStart, price: opening });
@@ -113,13 +120,13 @@ export function scheduleFA(data: FlexData, account: Account, ty: TaxYear, settin
       const conv = log.convert(area, () => fx.on(qty.mul(price), lot.currency, date));
       if (conv && (!peak || conv.inr.gt(peak.inr))) peak = { inr: conv.inr, date, qty, price, rate: conv.rate };
     }
-    const daysInSeries = series.filter((p) => inRange(p.date, cyStart, cyEnd)).length;
+    const daysInSeries = series.filter((p) => inRange(p.date, cyStart, closeDate)).length;
     const peakQuality: FaA3Row['peakQuality'] = hasDaily && daysInSeries >= 20 ? 'daily' : 'approximate';
 
     let closing: Conversion | undefined;
     if (qtyEnd.gt(0)) {
-      if (closingPrice) closing = log.convert(area, () => fx.on(qtyEnd.mul(closingPrice), lot.currency, cyEnd));
-      else log.add('error', area, `${lot.symbol}: no price for 31 Dec — closing value missing.`);
+      if (closingPrice) closing = log.convert(area, () => fx.on(qtyEnd.mul(closingPrice), lot.currency, closeDate));
+      else log.add('error', area, `${lot.symbol}: no price for ${closeDate} — closing value missing.`);
     }
 
     let proceedsForeign = new Decimal(0);
@@ -150,8 +157,8 @@ export function scheduleFA(data: FlexData, account: Account, ty: TaxYear, settin
   }
 
   allocateDividends(data, account, ty, a3, incomeRate, log);
-  const a2 = [custodialAccount(data, account, ty, settings, fx, log, a3)];
-  return { a2, a3, snapshotDate: ledger.snapshotDate };
+  const a2 = [custodialAccount(data, account, ty, settings, fx, log, a3, closeDate)];
+  return { a2, a3, snapshotDate: ledger.snapshotDate, closeDate };
 }
 
 function soldOn(lot: Lot, date: IsoDate): Decimal {
@@ -226,6 +233,7 @@ function custodialAccount(
   fx: Fx,
   log: Collector,
   a3: FaA3Row[],
+  closeDate: IsoDate,
 ): FaA2Row {
   const area = 'Schedule FA A2';
   const inst = institutionFor(account);
@@ -243,7 +251,7 @@ function custodialAccount(
       opening.set(ccy, f.balance);
       continue;
     }
-    if (f.date > ty.cyEnd) continue;
+    if (f.date > closeDate) continue;
     const m = perCcy.get(ccy) ?? new Map<IsoDate, Decimal>();
     if (!m.size && !opening.has(ccy)) opening.set(ccy, f.balance.sub(f.amount));
     m.set(f.date, f.balance);
@@ -252,7 +260,7 @@ function custodialAccount(
 
   if (perCcy.size > 0) {
     row.cashQuality = 'daily';
-    const dates = [...new Set([ty.cyStart, ...[...perCcy.values()].flatMap((m) => [...m.keys()]), ty.cyEnd])].sort();
+    const dates = [...new Set([ty.cyStart, ...[...perCcy.values()].flatMap((m) => [...m.keys()]), closeDate])].sort();
     const current = new Map(opening);
     for (const d of dates) {
       let total = new Decimal(0);
@@ -264,22 +272,22 @@ function custodialAccount(
         if (conv) total = total.add(conv.inr);
       }
       if (!row.peak || total.gt(row.peak.inr)) row.peak = { inr: total, date: d };
-      if (d === ty.cyEnd) row.closing = total;
+      if (d === closeDate) row.closing = total;
     }
   } else {
-    const reports = data.cashReports.filter((c) => c.accountId === account.accountId && c.toDate === ty.cyEnd && c.levelOfDetail === 'Currency');
+    const reports = data.cashReports.filter((c) => c.accountId === account.accountId && c.toDate === closeDate && c.levelOfDetail === 'Currency');
     if (reports.length) {
       row.cashQuality = 'approximate';
       let start = new Decimal(0);
       let end = new Decimal(0);
       for (const r of reports) {
         const s = log.convert(area, () => fx.on(r.startingCash, r.currency, r.fromDate));
-        const e = log.convert(area, () => fx.on(r.endingCash, r.currency, ty.cyEnd));
+        const e = log.convert(area, () => fx.on(r.endingCash, r.currency, closeDate));
         if (s) start = start.add(s.inr);
         if (e) end = end.add(e.inr);
       }
       row.closing = end;
-      row.peak = start.gt(end) ? { inr: start, date: ty.cyStart } : { inr: end, date: ty.cyEnd };
+      row.peak = start.gt(end) ? { inr: start, date: ty.cyStart } : { inr: end, date: closeDate };
       log.add('warn', area, 'Peak cash balance approximated from opening/closing cash only. Add the Statement of Funds section for the true daily peak.');
     } else {
       log.add('error', area, `No cash data for ${ty.cyStart.slice(0, 4)} (Statement of Funds, or a Cash Report ending 31 Dec) — A2 peak and closing balances are missing. This is usually fixed by the calendar-year export.`);
@@ -290,10 +298,10 @@ function custodialAccount(
 
   // Gross amounts credited to the account during the calendar year.
   const conv = (amount: Decimal, ccy: string, date: IsoDate) =>
-    log.convert(area, () => fx.on(amount, ccy, settings.faIncomeRate === 'cyEnd' ? ty.cyEnd : date));
+    log.convert(area, () => fx.on(amount, ccy, settings.faIncomeRate === 'cyEnd' ? closeDate : date));
   const sum = (kind: 'dividend' | 'interest') =>
     data.cash
-      .filter((t) => t.accountId === account.accountId && t.kind === kind && inRange(t.date, ty.cyStart, ty.cyEnd))
+      .filter((t) => t.accountId === account.accountId && t.kind === kind && inRange(t.date, ty.cyStart, closeDate))
       .reduce((s, t) => s.add(conv(t.amount, t.currency, t.date)?.inr ?? 0), new Decimal(0));
   const div = sum('dividend');
   const int = sum('interest');

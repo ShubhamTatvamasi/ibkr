@@ -106,7 +106,7 @@ class AppState {
     persist('settings', $state.snapshot(this.settings));
   }
 
-  setEntity(symbol: string, field: 'address' | 'zip', value: string) {
+  setEntity(symbol: string, field: 'name' | 'address' | 'zip', value: string) {
     this.entities = { ...this.entities, [symbol]: { ...this.entities[symbol], [field]: value } };
     persist('entities', $state.snapshot(this.entities));
   }

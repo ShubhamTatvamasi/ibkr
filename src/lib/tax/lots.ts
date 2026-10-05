@@ -45,7 +45,10 @@ export function buildLedger(data: FlexData, accountId: string, anchor: IsoDate):
     const key = keyOf(o.conid, o.openDateTime);
     const lot = lots.get(key);
     if (lot) {
-      lot.snapshotQty = lot.snapshotQty.add(o.quantity);
+      // One order filled as several executions shares an open time: merge, weighting the cost.
+      const qty = lot.snapshotQty.add(o.quantity);
+      lot.unitCost = qty.isZero() ? lot.unitCost : lot.unitCost.mul(lot.snapshotQty).add(o.costBasisMoney).div(qty);
+      lot.snapshotQty = qty;
       return;
     }
     lots.set(key, {

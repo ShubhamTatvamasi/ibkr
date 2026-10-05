@@ -15,6 +15,8 @@ export interface Account {
   name: string;
   baseCurrency: string;
   dateOpened?: IsoDate;
+  /** First funding date — statements start here, so earlier dates need no coverage. */
+  dateFunded?: IsoDate;
   ibEntity?: string;
 }
 

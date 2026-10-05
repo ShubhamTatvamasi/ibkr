@@ -6,3 +6,6 @@ dist/
 samples/private/
 *.flex.csv
 *.flex.xml
+
+# tests against real, private exports
+*.local.test.ts

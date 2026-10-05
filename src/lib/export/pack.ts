@@ -5,6 +5,8 @@ import { QUARTER_LABELS } from '../tax/years';
 import { toCsv, type Cell } from './csv';
 
 export interface EntityOverride {
+  /** Legal name, when IBKR's abbreviated description isn't it. */
+  name?: string;
   address?: string;
   zip?: string;
 }
@@ -143,7 +145,7 @@ export function buildPack(r: Report, entities: EntityOverrides = {}): PackFile[]
     table: [
       ['Sl.No.', 'Country Name and Code', 'Name of entity', 'Address of entity', 'ZIP Code', 'Nature of entity', 'Date of acquiring the interest', 'Initial value of the investment', 'Peak value of investment during the Period', 'Closing balance', 'Total gross amount paid/credited with respect to the holding during the period', 'Total gross proceeds from sale or redemption of investment during the period'],
       ...fa.a3.map((row, i): Cell[] => [
-        i + 1, `${row.country.itrCode} - ${row.country.name}`, row.entityName, entities[row.lot.symbol]?.address ?? '', entities[row.lot.symbol]?.zip ?? '', row.natureOfEntity, row.acquired,
+        i + 1, `${row.country.itrCode} - ${row.country.name}`, entities[row.lot.symbol]?.name?.trim() || row.entityName, entities[row.lot.symbol]?.address ?? '', entities[row.lot.symbol]?.zip ?? '', row.natureOfEntity, row.acquired,
         rupees(row.initial?.inr), rupees(row.peak?.inr), rupees(row.closing?.inr) ?? 0, rupees(row.dividends.inr) ?? 0, rupees(row.proceeds.inr) ?? 0,
       ]),
     ],

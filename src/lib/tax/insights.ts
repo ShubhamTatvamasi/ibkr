@@ -39,7 +39,9 @@ export interface Insights {
   turningLongTerm: Holding[];
   usSitusUsd: Decimal;
   estateExposed: boolean;
+  /** Highest total of shares + cash on any single day of the calendar year, in rupees. */
   faAggregateInr: Decimal;
+  faAggregateDate?: IsoDate;
   faBelowPenaltyThreshold: boolean;
   overWithheld: { symbol: string; dividendForeign: Decimal; taxForeign: Decimal; ratePct: Decimal }[];
   remittances: { depositsForeign: Decimal; withdrawalsForeign: Decimal; currency: string; count: number };
@@ -110,8 +112,8 @@ export function insights(data: FlexData, account: Account, ty: TaxYear, fa: FaRe
     count: transfers.length,
   };
 
-  // Aggregate value for the ₹20 lakh threshold: peak of holdings plus peak cash (conservative).
-  const faAggregateInr = sum(fa.a3.map((r) => r.peak?.inr)).add(sum(fa.a2.map((a) => a.peak?.inr)));
+  const faAggregate = combinedPeak(data, account, ty, fa, fx, log);
+  const faAggregateInr = faAggregate.inr;
 
   const turningLongTerm = holdings
     .filter((h) => h.daysToLongTerm > 0 && h.daysToLongTerm <= 120)
@@ -125,6 +127,7 @@ export function insights(data: FlexData, account: Account, ty: TaxYear, fa: FaRe
     usSitusUsd,
     estateExposed: usSitusUsd.gt(US_ESTATE_EXEMPTION_USD),
     faAggregateInr,
+    faAggregateDate: faAggregate.date,
     faBelowPenaltyThreshold: faAggregateInr.lte(FA_PENALTY_RELIEF_INR),
     overWithheld,
     remittances,
@@ -132,3 +135,54 @@ export function insights(data: FlexData, account: Account, ty: TaxYear, fa: FaRe
 }
 
 
+
+/**
+ * The ₹20 lakh Black Money Act test is on the aggregate value of foreign assets, so take the
+ * highest combined value of every lot plus cash on any one day — not the sum of separate peaks.
+ */
+function combinedPeak(data: FlexData, account: Account, ty: TaxYear, fa: FaResult, fx: Fx, log: Collector): { inr: Decimal; date?: IsoDate } {
+  const from = ty.cyStart;
+  const to = fa.closeDate;
+  const series = new Map<string, { date: IsoDate; price: Decimal }[]>();
+  for (const p of data.prices) {
+    if (p.accountId !== account.accountId) continue;
+    series.set(p.conid, [...(series.get(p.conid) ?? []), { date: p.date, price: p.price }]);
+  }
+  for (const list of series.values()) list.sort((a, b) => a.date.localeCompare(b.date));
+  const lastPrice = (conid: string, d: IsoDate) => {
+    const list = series.get(conid) ?? [];
+    let found: Decimal | undefined;
+    for (const p of list) if (p.date <= d) found = p.price;
+    return found;
+  };
+
+  const funds = data.funds.filter((f) => f.accountId === account.accountId);
+  const level = funds.some((f) => f.levelOfDetail === 'Currency') ? 'Currency' : funds[0]?.levelOfDetail;
+  const cashLines = funds.filter((f) => f.levelOfDetail === level).sort((a, b) => a.date.localeCompare(b.date));
+
+  const dates = new Set<IsoDate>();
+  for (const list of series.values()) for (const p of list) if (inRange(p.date, from, to)) dates.add(p.date);
+  for (const f of cashLines) if (inRange(f.date, from, to)) dates.add(f.date);
+  dates.add(to);
+
+  let best: { inr: Decimal; date?: IsoDate } = { inr: new Decimal(0) };
+  for (const d of [...dates].sort()) {
+    let total = new Decimal(0);
+    for (const row of fa.a3) {
+      const qty = heldAt(row.lot, d);
+      const price = qty.gt(0) ? lastPrice(row.lot.conid, d) ?? row.lot.unitCost : undefined;
+      if (!price) continue;
+      const conv = log.convert('Insights', () => fx.on(qty.mul(price), row.lot.currency, d));
+      if (conv) total = total.add(conv.inr);
+    }
+    const balances = new Map<string, Decimal>();
+    for (const f of cashLines) if (f.date <= d) balances.set(f.currency === 'BASE_SUMMARY' ? account.baseCurrency : f.currency, f.balance);
+    for (const [ccy, bal] of balances) {
+      if (bal.lte(0)) continue;
+      const conv = log.convert('Insights', () => fx.on(bal, ccy, d));
+      if (conv) total = total.add(conv.inr);
+    }
+    if (total.gt(best.inr)) best = { inr: total, date: d };
+  }
+  return best;
+}

@@ -11,6 +11,7 @@
   const r = $derived(app.report!);
   const rows = $derived(r.fa.a3);
   const year = $derived(r.year.cyStart.slice(0, 4));
+  const closeLabel = $derived(date(r.fa.closeDate));
   let at = $state(0);
   const row = $derived(rows[Math.min(at, rows.length - 1)]);
   const KEYS = ['name', 'addr', 'zip', 'acq', 'init', 'peak', 'close', 'gross', 'proc'];
@@ -28,6 +29,15 @@
       <p>Sold lots show a closing balance of 0 and their sale proceeds in column 12. Peak value is the highest rupee value of that lot on any day of the year.</p>
     </div>
   </div>
+  {#if r.periods.fa.inProgress}
+    <div class="callout accent">
+      <Icon name="clock" />
+      <div>
+        <b>Provisional — {year} isn't over yet.</b>
+        <p>Peak and closing values are as of {closeLabel}. After 31 December, export the full year and upload it again for the figures to file.</p>
+      </div>
+    </div>
+  {/if}
 </ScheduleHead>
 
 {#if !rows.length}
@@ -45,9 +55,9 @@
   </div>
 
   {#key at}
-    <FieldGroup title={`Row ${at + 1} · ${row.lot.symbol} · ${row.entityName}`} sub={`${num(row.qtyStart)} shares at start → ${num(row.qtyEnd)} at 31 Dec · peak ${row.peakQuality === 'daily' ? 'from daily prices' : 'approximate'}`}>
+    <FieldGroup title={`Row ${at + 1} · ${row.lot.symbol} · ${row.entityName}`} sub={`${num(row.qtyStart)} shares at start → ${num(row.qtyEnd)} at ${closeLabel} · peak ${row.peakQuality === 'daily' ? 'from daily prices' : 'approximate'}`}>
       <PortalField id={`fa3:${at}:country`} label="2 · Country Name and Code" display={`${row.country.itrCode || '?'} — ${row.country.name}`} text />
-      <PortalField id={`fa3:${at}:name`} label="3 · Name of entity" display={row.entityName} copy={row.entityName} text />
+      <PortalField id={`fa3:${at}:name`} label="3 · Name of entity" display={ent?.name?.trim() || row.entityName} copy={ent?.name?.trim() || row.entityName} hint={ent?.name?.trim() ? undefined : 'IBKR’s short name — set the legal name in Review'} tone={ent?.name?.trim() ? undefined : 'warn'} text />
       <PortalField
         id={`fa3:${at}:addr`}
         label="4 · Address of entity"
@@ -61,7 +71,7 @@
       <PortalField id={`fa3:${at}:acq`} label="7 · Date of acquiring the interest" display={date(row.acquired)} copy={portalDate(row.acquired)} />
       <PortalField id={`fa3:${at}:init`} label="8 · Initial value of the investment" display={inr(row.initial?.inr)} copy={raw(row.initial?.inr)} hint={row.initial ? `${money(row.initial.foreign, row.lot.currency)} × SBI ${row.initial.rate} (${date(row.initial.rateDate)})` : 'Rate missing'} />
       <PortalField id={`fa3:${at}:peak`} label="9 · Peak value of investment during the Period" display={inr(row.peak?.inr)} copy={raw(row.peak?.inr)} hint={row.peak ? `${num(row.peak.qty)} × ${money(row.peak.price, row.lot.currency)} × SBI ${row.peak.rate} on ${date(row.peak.date)}` : undefined} />
-      <PortalField id={`fa3:${at}:close`} label="10 · Closing balance" display={inr(row.closing?.inr ?? 0)} copy={raw(row.closing?.inr ?? 0)} hint={row.closing ? `${num(row.qtyEnd)} × ${money(row.closingPrice, row.lot.currency)} × SBI ${row.closing.rate} on 31 Dec` : 'Fully sold during the year'} />
+      <PortalField id={`fa3:${at}:close`} label="10 · Closing balance" display={inr(row.closing?.inr ?? 0)} copy={raw(row.closing?.inr ?? 0)} hint={row.closing ? `${num(row.qtyEnd)} × ${money(row.closingPrice, row.lot.currency)} × SBI ${row.closing.rate} on ${closeLabel}` : 'Fully sold during the year'} />
       <PortalField id={`fa3:${at}:gross`} label="11 · Total gross amount paid/credited with respect to the holding during the period" display={inr(row.dividends.inr)} copy={raw(row.dividends.inr)} hint="Dividends earned by this lot, gross" />
       <PortalField id={`fa3:${at}:proc`} label="12 · Total gross proceeds from sale or redemption of investment during the period" display={inr(row.proceeds.inr)} copy={raw(row.proceeds.inr)} />
     </FieldGroup>

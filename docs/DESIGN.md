@@ -106,14 +106,13 @@ Money is `decimal.js` throughout and rounded to whole rupees only for display an
 1. Capital gains conversion: sale and cost separately vs the gain converted once (setting).
 2. Schedule FA income and proceeds: transaction-date vs 31 December rate (setting).
 3. Broker interest: 31 March vs monthly rates (setting).
-4. Prior Period Positions price semantics on a real export (price of the row date vs the previous day).
-5. A2 with several natures of amount: one row per nature (no official guidance).
-6. Form 44 portal implementation for tax year 2026-27.
-7. Bond ETFs and section 50AA.
+4. A2 with several natures of amount: one row per nature (no official guidance).
+5. Form 44 portal implementation for tax year 2026-27.
+6. Bond ETFs and section 50AA.
 
 ## Roadmap
 
-- Validate against a real export; adjust peak dating if needed.
+- Validated against a real export (Oct 2026): Prior Period Positions give one row per trading day, priced at that day's close; IBKR splits one order into several same-timestamp lots (merged with weighted cost); statements start at first funding; years in progress are reported as provisional.
 - Stock splits, mergers and transfers-in: adjust lots automatically instead of flagging.
 - Activity Statement CSV as a fallback input.
 - RSU / transferred lots without cost: manual cost-at-vest entry.

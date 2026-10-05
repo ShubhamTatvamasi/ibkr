@@ -1,5 +1,5 @@
 import Decimal from 'decimal.js';
-import { formatDate, type IsoDate } from '../dates';
+import { daysBetween, formatDate, type IsoDate } from '../dates';
 import type { Account, FlexData } from '../flex/model';
 import { capitalGains, type CgResult } from './cg';
 import { Collector, type Settings, type Warning } from './common';
@@ -24,6 +24,8 @@ export interface Report {
   warnings: Warning[];
   missingRates: { currency: string; date: IsoDate }[];
   coverage: { from: IsoDate; to: IsoDate }[];
+  /** What each schedule group actually needs, after the account's start and today's date. */
+  periods: { fa: Period; fy: Period };
   summary: {
     stcg: Decimal;
     ltcg: Decimal;
@@ -35,6 +37,20 @@ export interface Report {
     faClosingTotal: Decimal;
     a3Rows: number;
   };
+}
+
+export interface Period {
+  /** The legal window, e.g. 1 Jan – 31 Dec. */
+  from: IsoDate;
+  to: IsoDate;
+  /** The part that data must cover: from the account's first funding, up to the latest data while the year runs. */
+  needFrom: IsoDate;
+  needTo: IsoDate;
+  /** The year hasn't ended yet: figures are provisional as of `needTo`. */
+  inProgress: boolean;
+  /** The account didn't exist during this window: nothing to report. */
+  notApplicable: boolean;
+  covered: boolean;
 }
 
 /** Merged, sorted date ranges covered by the uploaded statements for one account. */
@@ -73,17 +89,43 @@ export function currenciesIn(data: FlexData): Set<string> {
   return s;
 }
 
-export function buildReport(data: FlexData, account: Account, ayStart: number, settings: Settings, fx: Fx): Report {
+/** Required data range for a window, given when the account started and how far the year has run. */
+export function period(cov: { from: IsoDate; to: IsoDate }[], account: Account, from: IsoDate, to: IsoDate, today: IsoDate): Period {
+  const start = account.dateFunded ?? account.dateOpened ?? cov[0]?.from;
+  const dataEnd = cov.at(-1)?.to;
+  const inProgress = to >= today;
+  const needFrom = start && start > from ? start : from;
+  const needTo = inProgress && dataEnd && dataEnd < to ? dataEnd : to;
+  const notApplicable = !!start && start > to;
+  return { from, to, needFrom, needTo, inProgress, notApplicable, covered: notApplicable || covers(cov, needFrom, needTo) };
+}
+
+export function buildReport(data: FlexData, account: Account, ayStart: number, settings: Settings, fx: Fx, opts: { today?: IsoDate } = {}): Report {
   const ty = taxYear(ayStart);
   const log = new Collector();
+  const today = opts.today ?? new Date().toISOString().slice(0, 10);
   const cov = coverage(data, account.accountId);
   const covered = cov.length ? cov.map((r) => (r.from === r.to ? `only ${formatDate(r.from)}` : `${formatDate(r.from)} – ${formatDate(r.to)}`)).join(', ') : 'no dates';
+  const periods = {
+    fa: period(cov, account, ty.cyStart, ty.cyEnd, today),
+    fy: period(cov, account, ty.fyStart, ty.fyEnd, today),
+  };
+  const started = account.dateFunded ?? account.dateOpened;
 
-  if (!covers(cov, ty.cyStart, ty.cyEnd)) {
-    log.add('error', 'Coverage', `Schedule FA needs ${formatDate(ty.cyStart)} – ${formatDate(ty.cyEnd)}, but your files cover ${covered}. In IBKR, run the query with a Custom Date Range of exactly those dates and add that file.`);
+  for (const [p, what] of [
+    [periods.fa, 'Schedule FA'],
+    [periods.fy, 'Capital gains, dividends and the foreign tax credit'],
+  ] as const) {
+    if (p.notApplicable) {
+      log.add('info', 'Coverage', `${what}: the account was funded on ${formatDate(started!)}, after ${formatDate(p.to)} — nothing from this account to report for ${ty.label}.`);
+    } else if (!p.covered) {
+      log.add('error', 'Coverage', `${what} needs ${formatDate(p.needFrom)} – ${formatDate(p.needTo)}, but your files cover ${covered}. In IBKR, run the query with a Custom Date Range of those dates and add that file.`);
+    } else if (p.inProgress) {
+      log.add('info', 'Coverage', `${what}: the period runs to ${formatDate(p.to)}, so figures are provisional as of ${formatDate(p.needTo)}. Export again after it ends for the final numbers.`);
+    }
   }
-  if (!covers(cov, ty.fyStart, ty.fyEnd)) {
-    log.add('error', 'Coverage', `Capital gains, dividends and the foreign tax credit need ${formatDate(ty.fyStart)} – ${formatDate(ty.fyEnd)}, but your files cover ${covered}. In IBKR, run the query with a Custom Date Range of exactly those dates and add that file.`);
+  if (cov.length && (periods.fa.inProgress || periods.fy.inProgress) && daysBetween(cov.at(-1)!.to, today) > 10) {
+    log.add('info', 'Coverage', `Your latest file ends ${formatDate(cov.at(-1)!.to)}. For up-to-date figures, run the query again up to the previous business day.`);
   }
   for (const c of sectionChecklist(data)) {
     if (c.required && !c.present) {
@@ -111,9 +153,9 @@ export function buildReport(data: FlexData, account: Account, ayStart: number, s
     log.add('warn', 'Corporate actions', `${ca.symbol} ${ca.type} on ${ca.date} (${ca.description}). Check the affected lots' quantities and peak values.`);
   }
 
-  const fa = scheduleFA(data, account, ty, settings, fx, log);
+  const fa = scheduleFA(data, account, ty, settings, fx, log, periods.fa.inProgress ? periods.fa.needTo : undefined);
   const cg = capitalGains(data, account, ty, settings, fx, log);
-  const inc = income(data, account, ty, settings, fx, log);
+  const inc = income(data, account, ty, settings, fx, log, periods.fy.inProgress ? periods.fy.needTo : undefined);
   const ins = insights(data, account, ty, fa, fx, log);
   const foreign = foreignIncome(data, cg, inc, settings);
   if (settings.residency !== 'ROR') {
@@ -138,6 +180,7 @@ export function buildReport(data: FlexData, account: Account, ayStart: number, s
     warnings: [...log.warnings].sort((a, b) => order[a.level] - order[b.level]),
     missingRates: [...log.missingRates.values()].sort((a, b) => a.date.localeCompare(b.date)),
     coverage: cov,
+    periods,
     summary: {
       stcg: cg.stcg.gainInr,
       ltcg: cg.ltcg.gainInr,

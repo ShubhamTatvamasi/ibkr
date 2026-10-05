@@ -106,11 +106,13 @@
         <li class="issue warn">
           <div>
             <span class="area">Schedule FA · A3</span>
-            <p>Each company needs an address and ZIP code — IBKR data doesn't include them. Use the registered office from the company's annual report. Saved in this browser.</p>
+            <p>Schedule FA needs each company's or fund's legal name, registered address and ZIP code. IBKR gives only an abbreviated name and no address — take them from the annual report or fund prospectus (for an ETF, the fund company's registered office). Saved in this browser.</p>
             <div class="addr">
+              <div class="addr-row head" aria-hidden="true"><span>Symbol</span><span>Legal name</span><span>Registered address</span><span>ZIP</span></div>
               {#each [...new Set(r.fa.a3.map((x) => x.lot.symbol))] as sym}
                 <div class="addr-row" class:done={app.entities[sym]?.address?.trim()}>
-                  <div class="addr-name"><b>{sym}</b><span class="faint">{entityNames.get(sym)}</span></div>
+                  <div class="addr-name"><b>{sym}</b><span class="faint">IBKR: {entityNames.get(sym)}</span></div>
+                  <input aria-label={`${sym} legal name`} placeholder={entityNames.get(sym)} value={app.entities[sym]?.name ?? ''} onchange={(e) => app.setEntity(sym, 'name', e.currentTarget.value)} />
                   <input aria-label={`${sym} address`} placeholder="Registered address" value={app.entities[sym]?.address ?? ''} onchange={(e) => app.setEntity(sym, 'address', e.currentTarget.value)} />
                   <input aria-label={`${sym} ZIP code`} class="zip" placeholder="ZIP" value={app.entities[sym]?.zip ?? ''} onchange={(e) => app.setEntity(sym, 'zip', e.currentTarget.value)} />
                 </div>
@@ -186,7 +188,8 @@
   .rate-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: 10px; margin-top: 6px; }
   .narrow { max-width: 360px; margin-top: 6px; }
   .addr { display: grid; gap: 8px; margin-top: 6px; }
-  .addr-row { display: grid; grid-template-columns: 180px 1fr 110px; gap: 8px; align-items: center; }
+  .addr-row { display: grid; grid-template-columns: 150px 1fr 1.4fr 100px; gap: 8px; align-items: center; }
+  .addr-row.head { font-size: var(--fs-caption); color: var(--text-3); font-weight: 600; }
   .addr-row.done .addr-name b::after { content: ' ✓'; color: var(--success); }
   .addr-name { display: grid; font-size: 13px; min-width: 0; }
   .addr-name .faint { font-size: var(--fs-caption); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
@@ -200,6 +203,7 @@
   .opt small { color: var(--text-2); font-size: var(--fs-caption); line-height: 1.45; }
   @media (max-width: 640px) {
     .addr-row { grid-template-columns: 1fr 96px; }
-    .addr-name { grid-column: 1 / -1; }
+    .addr-row.head { display: none; }
+    .addr-name, .addr-row input:not(.zip) { grid-column: 1 / -1; }
   }
 </style>
