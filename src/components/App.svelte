@@ -1,6 +1,6 @@
 <script lang="ts">
-  import { onMount } from 'svelte';
   import Icon from './ui/Icon.svelte';
+  import ThemeSwitch from './ui/ThemeSwitch.svelte';
   import { app, SCHEDULES, type StepId } from './state.svelte';
   import Setup from './steps/Setup.svelte';
   import Review from './steps/Review.svelte';
@@ -18,29 +18,6 @@
   ];
 
   let menuOpen = $state(false);
-  let theme = $state<'light' | 'dark'>('light');
-
-  onMount(() => {
-    let saved: string | null = null;
-    try {
-      saved = localStorage.getItem('ibkr-tax:theme');
-    } catch {
-      /* storage unavailable */
-    }
-    theme = saved === 'dark' || saved === 'light' ? saved : matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
-    if (saved) document.documentElement.dataset.theme = saved;
-  });
-
-  function toggleTheme() {
-    theme = theme === 'dark' ? 'light' : 'dark';
-    document.documentElement.dataset.theme = theme;
-    try {
-      localStorage.setItem('ibkr-tax:theme', theme);
-    } catch {
-      /* storage unavailable */
-    }
-  }
-
   $effect(() => app.saveSettings());
 
   const ready = $derived(!!app.report);
@@ -121,9 +98,7 @@
         <a href={`${BASE}method/`}><Icon name="info" size={16} /> How it's calculated</a>
         <a href={`${BASE}assets/`}><Icon name="building" size={16} /> Address book</a>
       </div>
-      <button class="btn ghost sm theme" onclick={toggleTheme}>
-        <Icon name={theme === 'dark' ? 'sun' : 'moon'} size={16} />{theme === 'dark' ? 'Light mode' : 'Dark mode'}
-      </button>
+      <ThemeSwitch />
     </div>
   </aside>
   {#if menuOpen}<button class="scrim" aria-label="Close menu" onclick={() => (menuOpen = false)}></button>{/if}
@@ -201,7 +176,6 @@
   .foot-links { display: grid; gap: 4px; }
   .foot-links a { display: flex; align-items: center; gap: 8px; font-size: 13px; color: var(--text-2); text-decoration: none; padding: 4px; border-radius: var(--r-sm); }
   .foot-links a:hover { color: var(--text); background: var(--surface-hover); }
-  .theme { justify-self: start; }
 
   .main { min-width: 0; display: flex; flex-direction: column; }
   .topbar { position: sticky; top: 0; z-index: 10; display: flex; align-items: center; gap: 12px; height: 56px; padding: 0 32px; background: color-mix(in srgb, var(--bg) 88%, transparent); backdrop-filter: blur(8px); border-bottom: 1px solid var(--border); }

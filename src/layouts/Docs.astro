@@ -1,6 +1,7 @@
 ---
 import Base from './Base.astro';
 import Icon from '../components/Icon.astro';
+import { THEME_OPTIONS } from '../lib/ui/theme';
 
 interface Props {
   title: string;
@@ -41,7 +42,11 @@ const pages = [
       </nav>
       <div class="dside-foot">
         <div class="privacy-note"><Icon name="shield" size={18} /><span>The tool runs in your browser. Nothing is uploaded or stored.</span></div>
-        <button class="btn ghost sm" data-theme-toggle><Icon name="moon" size={16} class="if-light" /><Icon name="sun" size={16} class="if-dark" /><span class="if-light">Dark mode</span><span class="if-dark">Light mode</span></button>
+        <div class="theme-switch" role="radiogroup" aria-label="Theme">
+          {THEME_OPTIONS.map((o) => (
+            <button role="radio" aria-checked="false" data-theme-set={o.value} title={`${o.label} theme`}><Icon name={o.icon} size={15} /><span>{o.label}</span></button>
+          ))}
+        </div>
       </div>
     </aside>
     <button class="dscrim" data-menu-close aria-label="Close menu" hidden></button>
@@ -71,7 +76,7 @@ const pages = [
   </div>
 
   <script>
-    const root = document.documentElement;
+    import { applyTheme, savedTheme, type ThemeChoice } from '../lib/ui/theme';
     const side = document.getElementById('dside');
     const scrim = document.querySelector<HTMLButtonElement>('.dscrim');
     const setMenu = (open: boolean) => {
@@ -81,18 +86,21 @@ const pages = [
     document.querySelectorAll('[data-menu-open]').forEach((b) => b.addEventListener('click', () => setMenu(true)));
     document.querySelectorAll('[data-menu-close]').forEach((b) => b.addEventListener('click', () => setMenu(false)));
 
-    const isDark = () => (root.dataset.theme ? root.dataset.theme === 'dark' : matchMedia('(prefers-color-scheme: dark)').matches);
-    root.classList.toggle('is-dark', isDark());
-    document.querySelector('[data-theme-toggle]')?.addEventListener('click', () => {
-      const next = isDark() ? 'light' : 'dark';
-      root.dataset.theme = next;
-      root.classList.toggle('is-dark', next === 'dark');
-      try {
-        localStorage.setItem('ibkr-tax:theme', next);
-      } catch {
-        /* storage unavailable */
-      }
-    });
+    const themeButtons = [...document.querySelectorAll<HTMLButtonElement>('[data-theme-set]')];
+    const markTheme = (t: ThemeChoice) =>
+      themeButtons.forEach((b) => {
+        const on = b.dataset.themeSet === t;
+        b.classList.toggle('on', on);
+        b.setAttribute('aria-checked', String(on));
+      });
+    markTheme(savedTheme());
+    themeButtons.forEach((b) =>
+      b.addEventListener('click', () => {
+        const t = b.dataset.themeSet as ThemeChoice;
+        applyTheme(t);
+        markTheme(t);
+      }),
+    );
 
     for (const btn of document.querySelectorAll<HTMLButtonElement>('button[data-copy]')) {
       const label = btn.querySelector('span');
