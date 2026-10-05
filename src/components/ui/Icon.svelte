@@ -1,57 +1,5 @@
-<script lang="ts" module>
-  const FILE = 'M5.25 2.75h6l4 4v9.25c0 .69-.56 1.25-1.25 1.25H5.25C4.56 17.25 4 16.69 4 16V4c0-.69.56-1.25 1.25-1.25zM11.25 2.75v4h4';
-  const TRAY = 'M3.75 12.5v2.25c0 .83.67 1.5 1.5 1.5h9.5c.83 0 1.5-.67 1.5-1.5V12.5';
-  const CIRCLE = '<circle cx="10" cy="10" r="7.25"/>';
-
-  /** 20×20 stroke icons. Values are SVG inner markup. */
-  const ICONS: Record<string, string> = {
-    check: '<path d="M4.5 10.5l3.5 3.5 7.5-8"/>',
-    'check-circle': `${CIRCLE}<path d="M7 10.2l2 2 4-4.4"/>`,
-    x: '<path d="M5.5 5.5l9 9M14.5 5.5l-9 9"/>',
-    warn: '<path d="M8.7 3.9a1.5 1.5 0 0 1 2.6 0l6 10.4a1.5 1.5 0 0 1-1.3 2.2H4a1.5 1.5 0 0 1-1.3-2.2z"/><path d="M10 8v3.5M10 14v.01"/>',
-    error: `${CIRCLE}<path d="M10 6.5v4M10 13.5v.01"/>`,
-    info: `${CIRCLE}<path d="M10 9.25v4.5M10 6.5v.01"/>`,
-    upload: `<path d="M10 13V3.75M6.5 7.25 10 3.75l3.5 3.5"/><path d="${TRAY}"/>`,
-    download: `<path d="M10 3.75V13M6.5 9.5 10 13l3.5-3.5"/><path d="${TRAY}"/>`,
-    file: `<path d="${FILE}"/>`,
-    'file-table': `<path d="${FILE}"/><path d="M6.75 10.25h6.5M6.75 13.25h6.5M10 9v5.5"/>`,
-    'file-text': `<path d="${FILE}"/><path d="M7 10.5h6M7 13.5h4"/>`,
-    archive: '<rect x="3" y="3.75" width="14" height="12.5" rx="1.5"/><path d="M3 7.5h14M8.5 10.5h3"/>',
-    copy: '<rect x="7" y="7" width="9.25" height="9.25" rx="1.5"/><path d="M13 7V5c0-.69-.56-1.25-1.25-1.25H5c-.69 0-1.25.56-1.25 1.25v6.75c0 .69.56 1.25 1.25 1.25h2"/>',
-    'chevron-right': '<path d="M8 5.5l4.5 4.5L8 14.5"/>',
-    'chevron-down': '<path d="M5.5 8l4.5 4.5L14.5 8"/>',
-    'arrow-right': '<path d="M4 10h12M11.5 5.5 16 10l-4.5 4.5"/>',
-    'arrow-left': '<path d="M16 10H4M8.5 5.5 4 10l4.5 4.5"/>',
-    external: '<path d="M11.5 3.75h4.75V8.5M16.25 3.75 9.5 10.5"/><path d="M14 11.75v3c0 .83-.67 1.5-1.5 1.5h-7c-.83 0-1.5-.67-1.5-1.5v-7c0-.83.67-1.5 1.5-1.5h3"/>',
-    shield: '<path d="M10 2.75 16 5v4.75c0 3.6-2.5 6.3-6 7.5-3.5-1.2-6-3.9-6-7.5V5z"/><path d="M7.5 10l1.75 1.75L12.75 8.5"/>',
-    calendar: '<rect x="3.25" y="4.5" width="13.5" height="12.25" rx="1.5"/><path d="M3.25 8.25h13.5M7 2.75v3.5M13 2.75v3.5"/>',
-    eye: '<path d="M1.75 10S4.75 4.5 10 4.5s8.25 5.5 8.25 5.5-3 5.5-8.25 5.5S1.75 10 1.75 10z"/><circle cx="10" cy="10" r="2.25"/>',
-    building: '<path d="M3.75 17.25V4.25c0-.83.67-1.5 1.5-1.5h5.5c.83 0 1.5.67 1.5 1.5v13M12.25 8h2.5c.83 0 1.5.67 1.5 1.5v7.75M2.5 17.25h15M6.75 6h2.5M6.75 9h2.5M6.75 12h2.5"/>',
-    exchange: '<path d="M4 7h11.5M12.5 4l3 3-3 3M16 13H4.5M7.5 10l-3 3 3 3"/>',
-    clock: `${CIRCLE}<path d="M10 6.25V10l2.5 1.5"/>`,
-    trend: '<path d="M3 16.25h14M4.5 12.5 8 9l3 2.5 5-5.5M13 6h3v3"/>',
-    gauge: '<path d="M3.5 14.5a6.5 6.5 0 1 1 13 0M10 14.5l3-4"/><circle cx="10" cy="14.5" r=".75"/>',
-    'step-current': `${CIRCLE}<circle cx="10" cy="10" r="3" fill="currentColor"/>`,
-    'step-todo': CIRCLE,
-    menu: '<path d="M3.5 6h13M3.5 10h13M3.5 14h13"/>',
-    sun: '<circle cx="10" cy="10" r="3.25"/><path d="M10 2.5v1.5M10 16v1.5M2.5 10H4M16 10h1.5M4.7 4.7l1.06 1.06M14.24 14.24l1.06 1.06M4.7 15.3l1.06-1.06M14.24 5.76l1.06-1.06"/>',
-    moon: '<path d="M16.5 12A7 7 0 0 1 8 3.5a7 7 0 1 0 8.5 8.5z"/>',
-    sparkle: '<path d="M10 2.75l1.6 4.4 4.4 1.6-4.4 1.6L10 14.75l-1.6-4.4L4 8.75l4.4-1.6zM15.5 13.5l.6 1.4 1.4.6-1.4.6-.6 1.4-.6-1.4-1.4-.6 1.4-.6z"/>',
-    book: '<path d="M3.75 4.25c1.9-.9 4.1-.9 6.25.5 2.15-1.4 4.35-1.4 6.25-.5v11.5c-1.9-.9-4.1-.9-6.25.5-2.15-1.4-4.35-1.4-6.25-.5zM10 4.75v11.5"/>',
-    receipt: '<path d="M5 2.75h10v14.5l-2.5-1.5-2.5 1.5-2.5-1.5L5 17.25zM7.5 7h5M7.5 10h5M7.5 13h3"/>',
-    globe: `${CIRCLE}<path d="M2.75 10h14.5M10 2.75c2 2.1 3 4.5 3 7.25s-1 5.15-3 7.25c-2-2.1-3-4.5-3-7.25s1-5.15 3-7.25z"/>`,
-    coins: '<ellipse cx="8" cy="6" rx="4.75" ry="2.25"/><path d="M3.25 6v4c0 1.24 2.13 2.25 4.75 2.25M3.25 10v4c0 1.24 2.13 2.25 4.75 2.25"/><path d="M12 9.75c2.62 0 4.75 1 4.75 2.25S14.62 14.25 12 14.25 7.25 13.24 7.25 12 9.38 9.75 12 9.75zM7.25 12v2c0 1.24 2.13 2.25 4.75 2.25s4.75-1 4.75-2.25v-2"/>',
-    pie: '<path d="M10 2.75A7.25 7.25 0 1 0 17.25 10H10z"/><path d="M12.5 2.95A7.27 7.27 0 0 1 17.05 7.5H12.5z"/>',
-    flag: '<path d="M4.5 17.25V3.5M4.5 3.5h9l-1.5 3.25 1.5 3.25h-9"/>',
-    refresh: '<path d="M16 10a6 6 0 1 1-1.76-4.24M16.25 3.75v3.5h-3.5"/>',
-    trash: '<path d="M3.75 5.5h12.5M8 5.5V3.75h4V5.5M5.25 5.5l.75 11h8l.75-11"/>',
-    lock: '<rect x="4.25" y="8.75" width="11.5" height="8.5" rx="1.5"/><path d="M6.75 8.75V6.5a3.25 3.25 0 0 1 6.5 0v2.25"/>',
-  };
-
-  export type IconName = keyof typeof ICONS;
-</script>
-
 <script lang="ts">
+  import { ICONS } from '../../lib/ui/icons';
   let { name, size = 20, label }: { name: string; size?: number; label?: string } = $props();
 </script>
 

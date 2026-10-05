@@ -1,0 +1,21 @@
+---
+import Docs from '../layouts/Docs.astro';
+import Icon from '../components/Icon.astro';
+const base = import.meta.env.BASE_URL.replace(/\/?$/, '/');
+---
+<Docs title="Page not found · IBKR India Tax" crumb="Not found">
+  <span class="badge"><Icon name="info" size={14} />404</span>
+  <h1>This page doesn't exist</h1>
+  <p class="lead">The link may be old. Everything lives in three places:</p>
+  <div class="glance">
+    <a class="glance-card nf" href={base}><Icon name="upload" /><b>The tool</b><span>Upload your Flex Query and file your return</span></a>
+    <a class="glance-card nf" href={`${base}guide/`}><Icon name="book" /><b>Flex Query guide</b><span>Export the right files from IBKR</span></a>
+    <a class="glance-card nf" href={`${base}method/`}><Icon name="exchange" /><b>How it's calculated</b><span>Rules, rates and choices</span></a>
+  </div>
+  <style>
+    .nf { text-decoration: none; transition: border-color var(--dur-1); }
+    .nf:hover { border-color: var(--accent-line); }
+    .nf .icon { color: var(--accent); }
+    .nf b { font-size: var(--fs-body); }
+  </style>
+</Docs>

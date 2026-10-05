@@ -1,100 +1,183 @@
 ---
-import Base from '../../layouts/Base.astro';
+import Docs from '../../layouts/Docs.astro';
+import Icon from '../../components/Icon.astro';
+
 const base = import.meta.env.BASE_URL.replace(/\/?$/, '/');
 const prompts = [
   'Activity XML: Trades with Executions and Closed Lots, Open Positions at Lot level, Cash Transactions detail, Prior Period Positions, Statement of Funds, Account Information. All fields.',
   'Also add Financial Instrument Information, Cash Report, Change in Dividend Accruals and Corporate Actions, all fields. Date format yyyyMMdd, exclude canceled trades.',
 ];
 const sections = [
-  { name: 'Account Information', options: '—', why: 'Account number, opening date and IBKR entity for Schedule FA A2.', fields: 'Select All' },
-  { name: 'Trades', options: 'Executions and Closed Lots (both ticked)', why: 'Every sale with the exact lot it closed — acquisition date and cost — for capital gains and A3.', fields: 'Select All' },
-  { name: 'Open Positions', options: 'Lot (not Summary only)', why: 'One row per purchase lot with its open date — Table A3 needs one row per lot.', fields: 'Select All' },
-  { name: 'Cash Transactions', options: 'Detail; include Dividends, Payment in Lieu, Withholding Tax, 871(m), Broker Interest', why: 'Dividends, interest and US tax withheld for Schedule OS, FSI, TR and Form 67.', fields: 'Select All' },
-  { name: 'Prior Period Positions', options: '—', why: 'Daily price of every position you held — gives exact Schedule FA peak values without any external price service.', fields: 'Select All' },
-  { name: 'Statement of Funds', options: '—', why: 'Running cash balance — gives the true peak cash balance for Table A2.', fields: 'Select All' },
-  { name: 'Financial Instrument Information', options: '—', why: 'Full company names, ISIN and issuer country.', fields: 'Select All' },
-  { name: 'Cash Report', options: '—', why: 'Opening and closing cash (fallback for A2).', fields: 'Select All' },
-  { name: 'Change in Dividend Accruals', options: '—', why: 'Ex-dates, so dividends are matched to the lots that earned them.', fields: 'Select All' },
-  { name: 'Corporate Actions', options: '—', why: 'Splits, mergers and spin-offs are flagged for review.', fields: 'Select All' },
+  { name: 'Trades', options: 'Executions + Closed Lots', why: 'Every sale with the exact lot it closed: acquisition date and cost.', req: true },
+  { name: 'Open Positions', options: 'Lot (not Summary only)', why: 'One row per purchase lot with its open date — Schedule FA A3 needs one row per lot.', req: true },
+  { name: 'Cash Transactions', options: 'Detail', why: 'Dividends, interest and US tax withheld for Schedules OS, FSI, TR and Form 67.', req: true },
+  { name: 'Account Information', why: 'Account number, opening date and IBKR entity for Schedule FA A2.', req: false },
+  { name: 'Prior Period Positions', why: 'Daily price of every position — exact Schedule FA peak values with no outside price data.', req: false },
+  { name: 'Statement of Funds', why: 'Running cash balance — the true peak cash for Schedule FA A2.', req: false },
+  { name: 'Financial Instrument Information', why: 'Full company names, ISIN and issuer country.', req: false },
+  { name: 'Cash Report', why: 'Opening and closing cash, used if Statement of Funds is missing.', req: false },
+  { name: 'Change in Dividend Accruals', why: 'Ex-dates, so each dividend is matched to the lots that earned it.', req: false },
+  { name: 'Corporate Actions', why: 'Splits, mergers and spin-offs are flagged for review.', req: false },
+];
+const config = [
+  ['Format', 'XML'],
+  ['Period', 'Any — you choose dates each time you run it'],
+  ['Date format', 'yyyyMMdd (default) or yyyy-MM-dd'],
+  ['Time format', 'HHmmss (default)'],
+  ['Include canceled trades', 'No'],
+  ['Everything else', 'Leave at default'],
+];
+const years = [
+  { label: 'AY 2026-27', sub: 'FY 2025-26', cy: ['1 Jan 2025', '31 Dec 2025'], fy: ['1 Apr 2025', '31 Mar 2026'] },
+  { label: 'Tax year 2026-27', sub: 'Income-tax Act 2025', cy: ['1 Jan 2026', '31 Dec 2026'], fy: ['1 Apr 2026', '31 Mar 2027'] },
+];
+const toc = [
+  { id: 'ai', label: 'Quick way: Configure with AI' },
+  { id: 'manual', label: 'Create it by hand' },
+  { id: 'sections', label: 'Sections' },
+  { id: 'settings', label: 'Delivery settings' },
+  { id: 'run', label: 'Run it twice' },
+  { id: 'faq', label: 'Questions' },
 ];
 ---
-<Base title="IBKR Flex Query Setup" description="How to create the IBKR Activity Flex Query this tool needs, step by step.">
-  <article class="prose">
-    <h1>Create your IBKR Flex Query</h1>
-    <p class="lead">A Flex Query is a report template you build once in IBKR and run for any date range. It is the only IBKR export with lot-level detail: each purchase's date and cost, and which lot each sale closed. That detail is exactly what Schedule FA and capital gains need. Setting it up takes about ten minutes, once.</p>
+<Docs title="Flex Query Guide · IBKR India Tax" description="Create the IBKR Activity Flex Query this tool needs, step by step." crumb="Flex Query guide" toc={toc}>
+  <span class="badge accent"><Icon name="book" size={14} />Setup guide</span>
+  <h1>Create your IBKR Flex Query</h1>
+  <p class="lead">
+    A Flex Query is a report template you build once in IBKR and run for any dates. It is the only IBKR export with lot-level
+    detail — each purchase's date and cost, and which lot each sale closed — which is exactly what Schedule FA and capital gains need.
+  </p>
+  <div class="facts">
+    <span class="fact"><Icon name="clock" size={16} /><span><b>10 minutes</b>, once</span></span>
+    <span class="fact"><Icon name="file-table" size={16} /><span><b>1 query</b>, XML format</span></span>
+    <span class="fact"><Icon name="calendar" size={16} /><span><b>2 runs</b> per return</span></span>
+  </div>
 
-    <h2>Quick way: Configure with AI</h2>
-    <p>IBKR can now build the query from a description. Go to <b>Performance &amp; Reports</b> → <b>Flex Queries</b> → <b>Configure with AI</b>, paste the first prompt and click <b>Generate Flex Query</b>, then send the second one to add the remaining sections. The box takes up to 200 characters, so the request is split in two.</p>
-    {prompts.map((p, i) => (
-      <div class="prompt">
-        <div class="prompt-head"><b>Prompt {i + 1}</b><button class="btn copy" data-copy={p}>Copy</button></div>
-        <p>{p}</p>
-      </div>
-    ))}
-    <p class="faint">AI output can vary. Before saving, check the generated query against the section table below: <b>Trades</b> must include Closed Lots, <b>Open Positions</b> must be at Lot level, and the format must be XML. If anything is missing, the tool also lists the missing sections after you upload. Then run the query twice, as in step 4.</p>
-
-    <h2>1 · Or create the template by hand</h2>
-    <ol>
-      <li>Log in to IBKR Client Portal → <b>Performance &amp; Reports</b> → <b>Flex Queries</b>.</li>
-      <li>Next to <b>Activity Flex Query</b>, click <b>+</b> and name it, e.g. <code>india-tax</code>.</li>
-      <li>Add each section below. In each section's popup, set the options shown and click <b>Select All</b> for the fields, then <b>Save</b>.</li>
+  <section id="ai">
+    <h2><span class="h-icon"><Icon name="sparkle" size={18} /></span>Quick way: Configure with AI</h2>
+    <p class="sec-lead">IBKR can build the query from a description. Its prompt box takes 200 characters, so the request is split in two.</p>
+    <ol class="vsteps">
+      <li>
+        <div>
+          <b>Open Configure with AI</b>
+          <span class="path-chip">Performance &amp; Reports <Icon name="chevron-right" size={12} /> Flex Queries <Icon name="chevron-right" size={12} /> Configure with AI</span>
+        </div>
+      </li>
+      <li>
+        <div>
+          <b>Paste the first prompt and click Generate Flex Query</b>
+          <div class="prompt">
+            <div class="prompt-head"><b>Prompt 1</b><button class="btn sm" data-copy={prompts[0]}><Icon name="copy" size={16} /><span>Copy</span></button></div>
+            <p>{prompts[0]}</p>
+          </div>
+        </div>
+      </li>
+      <li>
+        <div>
+          <b>Send the second prompt to add the rest</b>
+          <div class="prompt">
+            <div class="prompt-head"><b>Prompt 2</b><button class="btn sm" data-copy={prompts[1]}><Icon name="copy" size={16} /><span>Copy</span></button></div>
+            <p>{prompts[1]}</p>
+          </div>
+        </div>
+      </li>
+      <li>
+        <div>
+          <b>Check before saving</b>
+          <p>AI output varies. Make sure Trades includes <b>Closed Lots</b>, Open Positions is at <b>Lot</b> level and the format is <b>XML</b> — compare with the <a href="#sections">section list</a>. The tool also tells you if anything is missing after upload.</p>
+        </div>
+      </li>
     </ol>
+  </section>
 
-    <h2>2 · Sections</h2>
-    <div class="table-wrap">
-      <table class="data">
-        <thead><tr><th>Section</th><th>Options</th><th>Why it's needed</th></tr></thead>
-        <tbody>
-          {sections.map((s) => <tr><td><b>{s.name}</b></td><td>{s.options}</td><td>{s.why}</td></tr>)}
-        </tbody>
-      </table>
+  <section id="manual">
+    <h2><span class="h-icon"><Icon name="file-table" size={18} /></span>Or create it by hand</h2>
+    <ol class="vsteps">
+      <li>
+        <div>
+          <b>Open Flex Queries</b>
+          <span class="path-chip">Client Portal <Icon name="chevron-right" size={12} /> Performance &amp; Reports <Icon name="chevron-right" size={12} /> Flex Queries</span>
+        </div>
+      </li>
+      <li><div><b>Create an Activity Flex Query</b><p>Click <b>+</b> next to Activity Flex Query and name it, for example <code>india-tax</code>.</p></div></li>
+      <li><div><b>Add each section below</b><p>In each section's popup set the options shown, click <b>Select All</b> for the fields, then <b>Save</b>.</p></div></li>
+      <li><div><b>Apply the delivery settings</b><p>Set the format to XML, keep the other defaults, and save the query.</p></div></li>
+    </ol>
+  </section>
+
+  <section id="sections">
+    <h2><span class="h-icon"><Icon name="check-circle" size={18} /></span>Sections</h2>
+    <p class="sec-lead">Three are required. The rest turn approximations into exact figures.</p>
+    <div class="sec-grid">
+      {sections.map((s) => (
+        <div class:list={['sec', { req: s.req }]}>
+          <div class="sec-top"><b>{s.name}</b><span class:list={['badge', { accent: s.req }]}>{s.req ? 'Required' : 'Recommended'}</span></div>
+          {s.options && <span class="opt">Options: {s.options}</span>}
+          <p>{s.why}</p>
+        </div>
+      ))}
     </div>
-    <p class="faint">Only Trades, Open Positions and Cash Transactions are strictly required. The others make the numbers exact rather than approximate, and the tool tells you which ones are missing.</p>
+  </section>
 
-    <h2>3 · Delivery and general configuration</h2>
-    <div class="table-wrap"><table class="data">
-      <tbody>
-        <tr><td>Format</td><td><b>XML</b></td></tr>
-        <tr><td>Period</td><td>Any — you choose dates when you run it</td></tr>
-        <tr><td>Date format</td><td><code>yyyyMMdd</code> (default) or <code>yyyy-MM-dd</code></td></tr>
-        <tr><td>Time format</td><td><code>HHmmss</code> (default)</td></tr>
-        <tr><td>Include canceled trades</td><td>No</td></tr>
-        <tr><td>Everything else</td><td>Leave at default</td></tr>
-      </tbody>
-    </table></div>
+  <section id="settings">
+    <h2><span class="h-icon"><Icon name="info" size={18} /></span>Delivery settings</h2>
+    <div class="kv">
+      {config.map(([k, v]) => <div class="kv-row"><span>{k}</span><b>{v}</b></div>)}
+    </div>
+  </section>
 
-    <h2>4 · Run it twice</h2>
-    <p>Schedule FA runs on the <b>calendar year</b>, while capital gains, dividends and the foreign tax credit run on the <b>financial year</b>. IBKR allows at most 365 days per run, so run the saved query twice with custom dates:</p>
-    <div class="table-wrap"><table class="data">
-      <thead><tr><th>Return</th><th>Run 1 — Schedule FA</th><th>Run 2 — CG, OS, FSI/TR</th></tr></thead>
-      <tbody>
-        <tr><td>AY 2026-27 (FY 2025-26)</td><td>1 Jan 2025 – 31 Dec 2025</td><td>1 Apr 2025 – 31 Mar 2026</td></tr>
-        <tr><td>Tax year 2026-27</td><td>1 Jan 2026 – 31 Dec 2026</td><td>1 Apr 2026 – 31 Mar 2027</td></tr>
-      </tbody>
-    </table></div>
-    <p>Click the run (▶) icon on the query, choose <b>Custom Date Range</b>, set the dates and <b>Run</b>, then download the XML. Drop both files into the <a href={base}>tool</a> together. Overlapping data is merged without double counting.</p>
+  <section id="run">
+    <h2><span class="h-icon"><Icon name="calendar" size={18} /></span>Run it twice</h2>
+    <p class="sec-lead">
+      Schedule FA reports the <b>calendar year</b>; capital gains, dividends and the foreign tax credit report the <b>financial year</b>.
+      IBKR allows 365 days per run, so run the saved query with two custom date ranges and download each XML.
+    </p>
+    <div class="run-grid">
+      {years.map((y) => (
+        <div class="run-card">
+          <header><b>{y.label}</b><span class="badge">{y.sub}</span></header>
+          <div class="run-line"><Icon name="calendar" size={18} /><span><b>{y.cy[0]} → {y.cy[1]}</b>Run 1 · Schedule FA</span></div>
+          <div class="run-line"><Icon name="calendar" size={18} /><span><b>{y.fy[0]} → {y.fy[1]}</b>Run 2 · Capital gains, dividends, foreign tax credit</span></div>
+        </div>
+      ))}
+    </div>
+    <div class="callout accent">
+      <Icon name="arrow-right" />
+      <div>
+        <b>Then drop both files into the tool.</b>
+        <p>Click the run (▶) icon on the query, choose Custom Date Range, run, and download. Overlapping periods are merged without double counting.</p>
+      </div>
+      <a class="btn primary sm" href={base}>Open the tool</a>
+    </div>
+  </section>
 
-    <h2>Notes</h2>
-    <ul>
-      <li>IBKR keeps Flex data for the four previous calendar years plus the current one. Lots bought earlier still appear in Open Positions with their original open date.</li>
-      <li>SBI rates in this tool start in January 2020. For older purchases, the tool asks you to enter the rate from SBI's historical rate card.</li>
-      <li>Options, futures and forex trades are listed as warnings but not computed.</li>
-      <li>Want to see the output first? Use <b>See it with sample data</b> on the <a href={base}>tool page</a>. It is a fictional account.</li>
-    </ul>
-    <p class="callout accent" style="display:block">Your XML file contains your account number and full trading history. This site has no server: the file is read by JavaScript in your browser, and the page's security policy blocks it from contacting any other site.</p>
-  </article>
-</Base>
-
-<script>
-  for (const btn of document.querySelectorAll<HTMLButtonElement>('button[data-copy]')) {
-    btn.addEventListener('click', async () => {
-      try {
-        await navigator.clipboard.writeText(btn.dataset.copy ?? '');
-        btn.textContent = 'Copied';
-      } catch {
-        btn.textContent = 'Select & copy';
-      }
-      setTimeout(() => (btn.textContent = 'Copy'), 1500);
-    });
-  }
-</script>
+  <section id="faq">
+    <h2><span class="h-icon"><Icon name="info" size={18} /></span>Questions</h2>
+    <div class="faq">
+      <details>
+        <summary>Why not the regular Activity Statement?<Icon name="chevron-right" size={18} /></summary>
+        <p>It summarises positions per stock and leaves out each lot's purchase date and the lot every sale closed. Schedule FA needs one row per lot and capital gains need the true holding period of each lot.</p>
+      </details>
+      <details>
+        <summary>How far back can I export?<Icon name="chevron-right" size={18} /></summary>
+        <p>Flex Queries cover the four previous calendar years plus the current one. Lots bought earlier still appear in Open Positions with their original open date and cost.</p>
+      </details>
+      <details>
+        <summary>What about purchases before 2020?<Icon name="chevron-right" size={18} /></summary>
+        <p>The tool's SBI rate archive starts in January 2020. For older dates it asks you to type in the SBI TT buying rate, which your bank or CA can provide.</p>
+      </details>
+      <details>
+        <summary>I trade options or futures. Are they covered?<Icon name="chevron-right" size={18} /></summary>
+        <p>No. Only stocks and ETFs are computed. Other trades are listed as warnings so you can report them separately with your CA.</p>
+      </details>
+      <details>
+        <summary>Is my file safe?<Icon name="chevron-right" size={18} /></summary>
+        <p>The XML contains your account number and full trading history. This site has no server: the file is read by JavaScript in your browser, and the page's security policy blocks it from contacting any other site. You can turn off Wi-Fi after the page loads and it still works.</p>
+      </details>
+      <details>
+        <summary>Can I see the output first?<Icon name="chevron-right" size={18} /></summary>
+        <p>Yes — on the <a href={base}>tool page</a>, choose “See it with sample data”. It is a fictional account.</p>
+      </details>
+    </div>
+  </section>
+</Docs>

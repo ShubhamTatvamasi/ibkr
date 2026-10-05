@@ -1,0 +1,130 @@
+---
+import Base from './Base.astro';
+import Icon from '../components/Icon.astro';
+
+interface Props {
+  title: string;
+  description?: string;
+  /** Short label shown in the top bar. */
+  crumb: string;
+  /** Section anchors for the "On this page" list. */
+  toc?: { id: string; label: string }[];
+}
+const { title, description, crumb, toc = [] } = Astro.props;
+const base = import.meta.env.BASE_URL.replace(/\/?$/, '/');
+const path = Astro.url.pathname.replace(/\/?$/, '/');
+const pages = [
+  { href: `${base}guide/`, label: 'Flex Query guide', icon: 'book' },
+  { href: `${base}method/`, label: 'How it’s calculated', icon: 'exchange' },
+];
+---
+<Base title={title} description={description}>
+  <div class="dshell">
+    <aside class="dside" id="dside" aria-label="Navigation">
+      <div class="dside-head">
+        <a class="brand" href={base}><span class="brand-mark">₹</span><span>IBKR India Tax</span></a>
+        <button class="btn ghost sm icon-only dclose" data-menu-close aria-label="Close menu"><Icon name="x" /></button>
+      </div>
+      <a class="btn primary open-tool" href={base}><Icon name="upload" size={18} />Open the tool</a>
+      <nav aria-label="Guides">
+        <p class="overline">Guides</p>
+        <ul class="dnav">
+          {pages.map((p) => (
+            <li>
+              <a href={p.href} class:list={['dnav-item', { current: path === p.href }]} aria-current={path === p.href ? 'page' : undefined}>
+                <Icon name={p.icon} size={18} />{p.label}
+              </a>
+            </li>
+          ))}
+        </ul>
+      </nav>
+      <div class="dside-foot">
+        <div class="privacy-note"><Icon name="shield" size={18} /><span>The tool runs in your browser. Nothing is uploaded or stored.</span></div>
+        <button class="btn ghost sm" data-theme-toggle><Icon name="moon" size={16} class="if-light" /><Icon name="sun" size={16} class="if-dark" /><span class="if-light">Dark mode</span><span class="if-dark">Light mode</span></button>
+      </div>
+    </aside>
+    <button class="dscrim" data-menu-close aria-label="Close menu" hidden></button>
+
+    <div class="dmain">
+      <header class="dtop">
+        <button class="btn ghost icon-only dmenu" data-menu-open aria-label="Open menu"><Icon name="menu" /></button>
+        <div class="dcrumb"><span class="faint">Guides</span><Icon name="chevron-right" size={14} /><b>{crumb}</b></div>
+        <a class="btn sm top-cta" href={base}>Open the tool<Icon name="arrow-right" size={16} /></a>
+      </header>
+      <div class="dbody">
+        <article class="doc">
+          <slot />
+          <footer class="doc-foot">
+            <Icon name="info" size={16} />
+            <p>A calculation aid, not tax advice. Review every figure with your Chartered Accountant before filing.</p>
+          </footer>
+        </article>
+        {toc.length > 0 && (
+          <nav class="toc" aria-label="On this page">
+            <p class="overline">On this page</p>
+            <ul>{toc.map((t) => <li><a href={`#${t.id}`} data-toc={t.id}>{t.label}</a></li>)}</ul>
+          </nav>
+        )}
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const root = document.documentElement;
+    const side = document.getElementById('dside');
+    const scrim = document.querySelector<HTMLButtonElement>('.dscrim');
+    const setMenu = (open: boolean) => {
+      side?.classList.toggle('open', open);
+      if (scrim) scrim.hidden = !open;
+    };
+    document.querySelectorAll('[data-menu-open]').forEach((b) => b.addEventListener('click', () => setMenu(true)));
+    document.querySelectorAll('[data-menu-close]').forEach((b) => b.addEventListener('click', () => setMenu(false)));
+
+    const isDark = () => (root.dataset.theme ? root.dataset.theme === 'dark' : matchMedia('(prefers-color-scheme: dark)').matches);
+    root.classList.toggle('is-dark', isDark());
+    document.querySelector('[data-theme-toggle]')?.addEventListener('click', () => {
+      const next = isDark() ? 'light' : 'dark';
+      root.dataset.theme = next;
+      root.classList.toggle('is-dark', next === 'dark');
+      try {
+        localStorage.setItem('ibkr-tax:theme', next);
+      } catch {
+        /* storage unavailable */
+      }
+    });
+
+    for (const btn of document.querySelectorAll<HTMLButtonElement>('button[data-copy]')) {
+      const label = btn.querySelector('span');
+      btn.addEventListener('click', async () => {
+        try {
+          await navigator.clipboard.writeText(btn.dataset.copy ?? '');
+          if (label) label.textContent = 'Copied';
+          btn.classList.add('success-state');
+        } catch {
+          if (label) label.textContent = 'Select and copy';
+        }
+        setTimeout(() => {
+          if (label) label.textContent = 'Copy';
+          btn.classList.remove('success-state');
+        }, 1600);
+      });
+    }
+
+    const links = [...document.querySelectorAll<HTMLAnchorElement>('[data-toc]')];
+    if (links.length) {
+      const io = new IntersectionObserver(
+        (entries) => {
+          for (const e of entries) {
+            if (!e.isIntersecting) continue;
+            links.forEach((l) => l.classList.toggle('active', l.dataset.toc === e.target.id));
+          }
+        },
+        { rootMargin: '-80px 0px -70% 0px' },
+      );
+      links.forEach((l) => {
+        const el = document.getElementById(l.dataset.toc ?? '');
+        if (el) io.observe(el);
+      });
+    }
+  </script>
+</Base>
