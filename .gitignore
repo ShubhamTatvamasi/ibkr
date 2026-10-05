@@ -1,0 +1,8 @@
+node_modules/
+dist/
+.astro/
+.DS_Store
+# never commit real broker statements
+samples/private/
+*.flex.csv
+*.flex.xml
