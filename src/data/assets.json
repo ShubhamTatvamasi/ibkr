@@ -1,0 +1,17 @@
+[
+  {
+    "isin": "IE00BK5BQT80",
+    "symbols": ["VWRA"],
+    "name": "Vanguard FTSE All-World UCITS ETF (USD) Accumulating",
+    "issuer": "Vanguard Funds plc",
+    "nature": "ETF",
+    "country": "IE",
+    "address": "70 Sir John Rogerson's Quay, Dublin 2, Ireland",
+    "zip": "D02 R296",
+    "sources": [
+      { "label": "Vanguard product page (domicile, legal entity)", "url": "https://www.vanguardmexico.com/en/product/etf/equity/9679/vanguard-ftse-all-world-ucits-etf-usd-accumulating" },
+      { "label": "Vanguard Funds plc shareholder notice (registered office)", "url": "https://fund-docs.vanguard.com/Vanguard_Funds_Plc_Changes_to_ETF_Funds_April_2026_EN.pdf" }
+    ],
+    "verified": "2026-10-05"
+  }
+]

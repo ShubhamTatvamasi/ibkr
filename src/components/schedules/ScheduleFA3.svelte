@@ -7,6 +7,7 @@
   import { app } from '../state.svelte';
   import { date, inr, money, num, portalDate, raw } from '../../lib/ui/format';
   import Decimal from 'decimal.js';
+  import { entityFor } from '../../lib/assets';
 
   const r = $derived(app.report!);
   const rows = $derived(r.fa.a3);
@@ -18,7 +19,8 @@
   const ids = $derived(rows.flatMap((_, i) => KEYS.map((k) => `fa3:${i}:${k}`)));
   const doneRow = (i: number) => KEYS.every((k) => app.copied[`fa3:${i}:${k}`]);
   const sum = (f: (x: (typeof rows)[number]) => Decimal | undefined) => rows.reduce((s, x) => s.add(f(x) ?? 0), new Decimal(0));
-  const ent = $derived(row ? app.entities[row.lot.symbol] : undefined);
+  const ent = $derived(row ? entityFor(row.lot.symbol, row.isin, row.entityName, app.entities) : undefined);
+  const fromBook = $derived(ent?.source === 'address book');
 </script>
 
 <ScheduleHead title="Schedule FA · Table A3 — Foreign equity holdings" path="ITR-2 › Schedule FA › A3 › Add" period={`Calendar year ${year}`} {ids}>
@@ -55,18 +57,11 @@
   </div>
 
   {#key at}
-    <FieldGroup title={`Row ${at + 1} · ${row.lot.symbol} · ${row.entityName}`} sub={`${num(row.qtyStart)} shares at start → ${num(row.qtyEnd)} at ${closeLabel} · peak ${row.peakQuality === 'daily' ? 'from daily prices' : 'approximate'}`}>
+    <FieldGroup title={`Row ${at + 1} · ${row.lot.symbol} · ${ent!.name}`} sub={`${num(row.qtyStart)} shares at start → ${num(row.qtyEnd)} at ${closeLabel} · peak ${row.peakQuality === 'daily' ? 'from daily prices' : 'approximate'}`}>
       <PortalField id={`fa3:${at}:country`} label="2 · Country Name and Code" display={`${row.country.itrCode || '?'} — ${row.country.name}`} text />
-      <PortalField id={`fa3:${at}:name`} label="3 · Name of entity" display={ent?.name?.trim() || row.entityName} copy={ent?.name?.trim() || row.entityName} hint={ent?.name?.trim() ? undefined : 'IBKR’s short name — set the legal name in Review'} tone={ent?.name?.trim() ? undefined : 'warn'} text />
-      <PortalField
-        id={`fa3:${at}:addr`}
-        label="4 · Address of entity"
-        display={ent?.address || 'Missing — add in Review'}
-        copy={ent?.address || undefined}
-        tone={ent?.address ? undefined : 'warn'}
-        text
-      />
-      <PortalField id={`fa3:${at}:zip`} label="5 · ZIP Code" display={ent?.zip || '—'} copy={ent?.zip || undefined} tone={ent?.zip ? undefined : 'warn'} />
+      <PortalField id={`fa3:${at}:name`} label="3 · Name of entity" display={ent!.name} copy={ent!.name} hint={ent!.name === row.entityName ? 'IBKR’s short name — set the legal name in Review' : fromBook ? 'From the address book' : undefined} tone={ent!.name === row.entityName ? 'warn' : undefined} text />
+      <PortalField id={`fa3:${at}:addr`} label="4 · Address of entity" display={ent!.address || 'Missing — add in Review'} copy={ent!.address || undefined} tone={ent!.address ? undefined : 'warn'} hint={fromBook ? `From the address book · ${ent!.record?.issuer}` : undefined} text />
+      <PortalField id={`fa3:${at}:zip`} label="5 · ZIP Code" display={ent!.zip || '—'} copy={ent!.zip || undefined} tone={ent!.zip ? undefined : 'warn'} />
       <PortalField id={`fa3:${at}:nature`} label="6 · Nature of entity" display={row.natureOfEntity} copy={row.natureOfEntity} text />
       <PortalField id={`fa3:${at}:acq`} label="7 · Date of acquiring the interest" display={date(row.acquired)} copy={portalDate(row.acquired)} />
       <PortalField id={`fa3:${at}:init`} label="8 · Initial value of the investment" display={inr(row.initial?.inr)} copy={raw(row.initial?.inr)} hint={row.initial ? `${money(row.initial.foreign, row.lot.currency)} × SBI ${row.initial.rate} (${date(row.initial.rateDate)})` : 'Rate missing'} />
@@ -85,7 +80,7 @@
         {#each rows as x, i}
           <tr class="click" class:current={i === at} onclick={() => (at = i)}>
             <td class="num">{i + 1}{#if doneRow(i)}<span class="ok"> ✓</span>{/if}</td>
-            <td><span class="sym">{x.lot.symbol}</span><span class="sub">{x.entityName}</span></td>
+            <td><span class="sym">{x.lot.symbol}</span><span class="sub">{entityFor(x.lot.symbol, x.isin, x.entityName, app.entities).name}</span></td>
             <td>{date(x.acquired)}</td>
             <td class="r">{inr(x.initial?.inr)}</td>
             <td class="r">{inr(x.peak?.inr)}</td>

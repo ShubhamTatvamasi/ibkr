@@ -6,6 +6,7 @@ import { Fx, type RateOverrides } from '../lib/tax/fx';
 import { taxYear } from '../lib/tax/years';
 import type { EntityOverrides } from '../lib/export/pack';
 import { BASE, persist, store } from '../lib/ui/format';
+import { entityFor } from '../lib/assets';
 
 export interface LoadedFile {
   name: string;
@@ -75,7 +76,9 @@ class AppState {
 
   /** Missing company addresses count as review items for Schedule FA A3. */
   missingAddresses = $derived(
-    this.report ? [...new Set(this.report.fa.a3.map((r) => r.lot.symbol))].filter((s) => !this.entities[s]?.address?.trim()) : [],
+    this.report
+      ? [...new Set(this.report.fa.a3.filter((r) => entityFor(r.lot.symbol, r.isin, r.entityName, this.entities).source === 'missing').map((r) => r.lot.symbol))]
+      : [],
   );
   /** Blocking problems: errors other than missing rates, plus each missing exchange rate. */
   mustFix = $derived(

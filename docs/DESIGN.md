@@ -84,6 +84,13 @@ income, and the treaty rate (India–US: 25% dividends, Article 10; 15% interest
 Form 67 Part A rows only where tax was paid. Schedule FSI per country: capital gains head (no foreign
 tax) and other sources; TIN or passport number. Schedule TR: per-country totals under section 90.
 
+## Address book
+
+`src/data/assets.json` holds legal names, issuers and registered addresses of securities, keyed by ISIN,
+taken only from issuer documents (prospectus, annual report, shareholder notices) with the source links
+stored per entry. The tool fills Schedule FA A3 from it; the user's own entries override it. The
+`/assets/` page lists it with search and copy buttons. Entries are added as holdings come up.
+
 ## Architecture
 
 ```

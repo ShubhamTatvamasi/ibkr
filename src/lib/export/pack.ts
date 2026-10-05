@@ -3,6 +3,7 @@ import type { Conversion } from '../tax/fx';
 import type { Report } from '../tax/engine';
 import { QUARTER_LABELS } from '../tax/years';
 import { toCsv, type Cell } from './csv';
+import { entityFor } from '../assets';
 
 export interface EntityOverride {
   /** Legal name, when IBKR's abbreviated description isn't it. */
@@ -144,10 +145,13 @@ export function buildPack(r: Report, entities: EntityOverrides = {}): PackFile[]
     category: 'schedule',
     table: [
       ['Sl.No.', 'Country Name and Code', 'Name of entity', 'Address of entity', 'ZIP Code', 'Nature of entity', 'Date of acquiring the interest', 'Initial value of the investment', 'Peak value of investment during the Period', 'Closing balance', 'Total gross amount paid/credited with respect to the holding during the period', 'Total gross proceeds from sale or redemption of investment during the period'],
-      ...fa.a3.map((row, i): Cell[] => [
-        i + 1, `${row.country.itrCode} - ${row.country.name}`, entities[row.lot.symbol]?.name?.trim() || row.entityName, entities[row.lot.symbol]?.address ?? '', entities[row.lot.symbol]?.zip ?? '', row.natureOfEntity, row.acquired,
+      ...fa.a3.map((row, i): Cell[] => {
+        const e = entityFor(row.lot.symbol, row.isin, row.entityName, entities);
+        return [
+        i + 1, `${row.country.itrCode} - ${row.country.name}`, e.name, e.address, e.zip, e.nature ?? row.natureOfEntity, row.acquired,
         rupees(row.initial?.inr), rupees(row.peak?.inr), rupees(row.closing?.inr) ?? 0, rupees(row.dividends.inr) ?? 0, rupees(row.proceeds.inr) ?? 0,
-      ]),
+      ];
+      }),
     ],
   });
 
@@ -275,7 +279,7 @@ function readme(r: Report, files: PackFile[]): string {
     `  Dividends are reported gross (before US withholding); the withholding is claimed through Schedules FSI/TR and ${ty.law.ftcForm}.`,
     '  Table F values are net gains per period with losses absorbed by later gains, never negative. Re-check against Schedule BFLA.',
     '  Schedule FA has no official bulk upload; enter rows on the portal (or the offline utility) using the A2/A3 files, which follow the portal column order.',
-    '  Company addresses are not in IBKR data; any you entered in the tool are included in the A3 file.',
+    '  Company names and addresses come from your own entries, then the tool\'s address book of public issuer records; IBKR data has neither.',
     '',
     'Warnings raised:',
     ...(r.warnings.length ? r.warnings.map((w) => `  [${w.level.toUpperCase()}] ${w.area}: ${w.message}`) : ['  none']),

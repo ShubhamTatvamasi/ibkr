@@ -1,0 +1,127 @@
+---
+import Docs from '../../layouts/Docs.astro';
+import Icon from '../../components/Icon.astro';
+import { ASSETS } from '../../lib/assets';
+import { country } from '../../lib/tax/countries';
+
+const base = import.meta.env.BASE_URL.replace(/\/?$/, '/');
+const assets = [...ASSETS].sort((a, b) => a.name.localeCompare(b.name));
+const toc = [
+  { id: 'directory', label: 'Directory' },
+  { id: 'how', label: 'How entries are added' },
+];
+---
+<Docs title="Address Book · IBKR India Tax" description="Legal names and registered addresses of companies and funds, from public issuer documents, for Schedule FA." crumb="Address book" toc={toc}>
+  <span class="badge accent"><Icon name="building" size={14} />Address book</span>
+  <h1>Companies and funds</h1>
+  <p class="lead">
+    Schedule FA Table A3 asks for each holding's legal name, registered address and ZIP code — none of which IBKR provides.
+    Assets listed here are filled in automatically when your file contains their ISIN.
+  </p>
+  <div class="facts">
+    <span class="fact"><Icon name="building" size={16} /><span><b>{assets.length}</b> {assets.length === 1 ? 'asset' : 'assets'}</span></span>
+    <span class="fact"><Icon name="check-circle" size={16} /><span>From <b>public issuer documents</b></span></span>
+    <span class="fact"><Icon name="shield" size={16} /><span>Your own edits always win</span></span>
+  </div>
+
+  <section id="directory">
+    <h2><span class="h-icon"><Icon name="book" size={18} /></span>Directory</h2>
+    <label class="search">
+      <Icon name="eye" size={18} />
+      <input type="search" placeholder="Search by symbol, ISIN, name or issuer" data-asset-search aria-label="Search the address book" />
+    </label>
+    <div class="assets">
+      {assets.map((a) => {
+        const c = country(a.country);
+        const fields = [
+          ['Name of entity', a.name],
+          ['Address of entity', a.address],
+          ['ZIP Code', a.zip],
+          ['Nature of entity', a.nature],
+          ['Country Name and Code', `${c.itrCode} — ${c.name}`],
+        ];
+        return (
+          <article class="asset" data-asset={`${a.symbols.join(' ')} ${a.isin} ${a.name} ${a.issuer}`.toLowerCase()}>
+            <header>
+              <div>
+                <div class="asset-top">{a.symbols.map((s) => <span class="badge accent">{s}</span>)}<span class="mono isin">{a.isin}</span></div>
+                <h3>{a.name}</h3>
+                <p class="issuer">{a.issuer} · {c.name}</p>
+              </div>
+            </header>
+            <dl>
+              {fields.map(([k, v]) => (
+                <div class="row">
+                  <dt>{k}</dt>
+                  <dd>{v}</dd>
+                  <button class="btn sm" data-copy={k === 'Country Name and Code' ? c.itrCode : v} aria-label={`Copy ${k}`}><Icon name="copy" size={16} /><span>Copy</span></button>
+                </div>
+              ))}
+            </dl>
+            <footer>
+              <span class="faint">Verified {a.verified}</span>
+              <span class="sources">
+                {a.sources.map((s) => <a href={s.url} rel="noopener"><Icon name="external" size={14} />{s.label}</a>)}
+              </span>
+            </footer>
+          </article>
+        );
+      })}
+    </div>
+    <p class="none" data-asset-none hidden>No match. If it's one of your holdings, enter its details in the tool's Review step — they're saved in your browser.</p>
+  </section>
+
+  <section id="how">
+    <h2><span class="h-icon"><Icon name="info" size={18} /></span>How entries are added</h2>
+    <div class="rule-list">
+      <div class="rule"><Icon name="file-text" /><div><b>Public issuer documents only</b><p>Legal name and registered office come from the issuer's own prospectus, annual report or shareholder notices, linked on each entry.</p></div></div>
+      <div class="rule"><Icon name="flag" /><div><b>Keyed by ISIN</b><p>An entry applies to every listing of the same security, whatever the ticker or exchange.</p></div></div>
+      <div class="rule"><Icon name="refresh" /><div><b>Grows over time</b><p>Assets are added as they come up. Until yours is listed, type its details in the Review step of the <a href={base}>tool</a>.</p></div></div>
+    </div>
+  </section>
+
+  <script>
+    const input = document.querySelector<HTMLInputElement>('[data-asset-search]');
+    const cards = [...document.querySelectorAll<HTMLElement>('[data-asset]')];
+    const none = document.querySelector<HTMLElement>('[data-asset-none]');
+    input?.addEventListener('input', () => {
+      const q = input.value.trim().toLowerCase();
+      let shown = 0;
+      for (const c of cards) {
+        const hit = !q || (c.dataset.asset ?? '').includes(q);
+        c.hidden = !hit;
+        if (hit) shown++;
+      }
+      if (none) none.hidden = shown > 0;
+    });
+  </script>
+
+  <style>
+    .search { display: flex; align-items: center; gap: 8px; padding: 0 12px; margin-bottom: 14px; background: var(--surface); border: 1px solid var(--border-strong); border-radius: var(--r-md); }
+    .search .icon { color: var(--text-3); }
+    .search input { border: 0; padding: 0; box-shadow: none; background: transparent; }
+    .search input:focus-visible { box-shadow: none; }
+    .search:focus-within { border-color: var(--focus); box-shadow: 0 0 0 3px color-mix(in srgb, var(--focus) 25%, transparent); }
+    .assets { display: grid; gap: 12px; }
+    .asset { background: var(--surface); border: 1px solid var(--border); border-radius: var(--r-lg); box-shadow: var(--sh-1); overflow: hidden; }
+    .asset[hidden] { display: none; }
+    .asset header { padding: 16px; border-bottom: 1px solid var(--border); }
+    .asset-top { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
+    .isin { font-size: 12.5px; color: var(--text-3); }
+    .asset h3 { font-size: var(--fs-h3); margin-top: 8px; }
+    .issuer { font-size: 13px; margin-top: 2px; }
+    .asset dl { margin: 0; }
+    .row { display: grid; grid-template-columns: 190px 1fr auto; gap: 12px; align-items: center; padding: 10px 16px; border-bottom: 1px solid var(--border); }
+    .row dt { font-size: 13px; color: var(--text-2); }
+    .row dd { margin: 0; font-size: var(--fs-ui); color: var(--text); font-weight: 500; overflow-wrap: anywhere; }
+    .asset footer { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 8px; padding: 12px 16px; font-size: 12.5px; background: var(--surface-sunken); }
+    .sources { display: flex; flex-wrap: wrap; gap: 6px 14px; }
+    .sources a { display: inline-flex; align-items: center; gap: 4px; color: var(--accent); text-decoration: none; }
+    .sources a:hover { text-decoration: underline; }
+    .none { margin-top: 12px; font-size: var(--fs-ui); }
+    @media (max-width: 640px) {
+      .row { grid-template-columns: 1fr auto; }
+      .row dt { grid-column: 1 / -1; }
+    }
+  </style>
+</Docs>

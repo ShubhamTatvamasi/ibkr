@@ -119,6 +119,7 @@
       <div class="foot-links">
         <a href={`${BASE}guide/`}><Icon name="book" size={16} /> Flex Query guide</a>
         <a href={`${BASE}method/`}><Icon name="info" size={16} /> How it's calculated</a>
+        <a href={`${BASE}assets/`}><Icon name="building" size={16} /> Address book</a>
       </div>
       <button class="btn ghost sm theme" onclick={toggleTheme}>
         <Icon name={theme === 'dark' ? 'sun' : 'moon'} size={16} />{theme === 'dark' ? 'Light mode' : 'Dark mode'}

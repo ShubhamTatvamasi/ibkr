@@ -196,3 +196,15 @@ describe('one order filled as several executions', () => {
     expect(lots[0].unitCost.mul(lots[0].snapshotQty).toDecimalPlaces(6).toString()).toBe('499.692064');
   });
 });
+
+describe('address book', () => {
+  it('fills known ISINs and lets the user override', async () => {
+    const { entityFor } = await import('../assets');
+    const auto = entityFor('VWRA', 'IE00BK5BQT80', 'VANG FTSE AW USDA', {});
+    expect(auto).toMatchObject({ source: 'address book', zip: 'D02 R296', nature: 'ETF' });
+    expect(auto.name).toContain('Vanguard FTSE All-World');
+    const own = entityFor('VWRA', 'IE00BK5BQT80', 'VANG FTSE AW USDA', { VWRA: { address: 'Elsewhere 1' } });
+    expect(own).toMatchObject({ source: 'you', address: 'Elsewhere 1', zip: 'D02 R296' });
+    expect(entityFor('XYZ', 'US0000000000', 'XYZ CORP', {}).source).toBe('missing');
+  });
+});

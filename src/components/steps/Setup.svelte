@@ -53,6 +53,22 @@
   }
 
   let dragKey = $state('');
+  let pickSlot = $state('');
+  let slotWarn = $state<Record<string, string>>({});
+
+  /** Add files from a slot; warn on that slot if none of them overlaps its period. */
+  async function addTo(slotKey: string, list: FileList | null) {
+    if (!list?.length) return;
+    const names = [...list].map((f) => f.name);
+    await app.addFiles(list);
+    const sl = slots.find((x) => x.key === slotKey);
+    if (!sl) return;
+    const hit = (app.data?.statements ?? []).some((st) => names.includes(st.fileName) && st.toDate >= sl.from && st.fromDate <= sl.to);
+    slotWarn = {
+      ...slotWarn,
+      [slotKey]: hit ? '' : `${names.join(', ')} doesn't cover ${date(sl.from)} – ${date(sl.to)}. It was kept for the period it does cover — check the Custom Date Range you ran.`,
+    };
+  }
   const slots = $derived([
     { key: 'fa', title: 'Calendar-year file', purpose: 'Schedule FA (foreign assets)', from: app.year.cyStart, to: app.year.cyEnd, p: app.report?.periods.fa },
     { key: 'fy', title: 'Financial-year file', purpose: 'Capital gains, dividends, foreign tax credit', from: app.year.fyStart, to: app.year.fyEnd, p: app.report?.periods.fy },
@@ -75,8 +91,14 @@
     if (!p) return covered(sl.from, sl.to) ? { tone: 'ok', label: 'Covered', icon: 'check-circle', note: 'Your files cover this period.' } : { tone: 'bad', label: 'Gaps', icon: 'warn', note: 'Your files don\'t cover this whole period.' };
     if (p.notApplicable) return { tone: 'na', label: 'Not needed', icon: 'info', note: 'Your account was funded after this period ended — nothing to report for it.' };
     if (!p.covered) return { tone: 'bad', label: 'Gaps', icon: 'warn', note: `Run the query with Custom Date Range ${date(p.needFrom)} → ${date(p.needTo)} and add that file.` };
-    if (p.inProgress) return { tone: 'prov', label: 'Provisional', icon: 'clock', note: `This period is still running. Figures are as of ${date(p.needTo)}; export again after ${date(p.to)} for final numbers.` };
-    return { tone: 'ok', label: 'Covered', icon: 'check-circle', note: p.needFrom > p.from ? `Covered from your account's start on ${date(p.needFrom)}.` : 'Your files cover this whole period.' };
+    const other = slots.find((x) => x.key !== sl.key)!;
+    const mine = filesFor(sl.from, sl.to);
+    const shared = mine.length > 0 && mine.every((f) => filesFor(other.from, other.to).includes(f)) && !other.p?.notApplicable;
+    const sharedNote = shared
+      ? ` The same file covers the ${other.title.toLowerCase()} too${p.needFrom > p.from ? ` — your account started on ${date(p.needFrom)}, so both periods need the same dates` : ''}. No second file is needed.`
+      : '';
+    if (p.inProgress) return { tone: 'prov', label: 'Provisional', icon: 'clock', note: `Still running: figures are as of ${date(p.needTo)}; export again after ${date(p.to)} for final numbers.${sharedNote}` };
+    return { tone: 'ok', label: 'Covered', icon: 'check-circle', note: (p.needFrom > p.from ? `Covered from your account's start on ${date(p.needFrom)}.` : 'Your files cover this whole period.') + sharedNote };
   }
 
   const windows = $derived([
@@ -96,7 +118,13 @@
       field by field in the order the e-filing portal asks for them.
     </p>
     <div class="hero-actions">
-      <button class="btn primary lg" onclick={() => input.click()}><Icon name="upload" />Upload Flex Query files</button>
+      <button
+        class="btn primary lg"
+        onclick={() => {
+          pickSlot = '';
+          input.click();
+        }}><Icon name="upload" />Upload Flex Query files</button
+      >
       <button class="btn lg" onclick={() => app.loadSample()} disabled={app.busy}><Icon name="eye" />See it with sample data</button>
     </div>
     <ul class="trust">
@@ -189,7 +217,7 @@
       </div>
       {#if !app.data}<button class="link-btn" onclick={() => app.loadSample()}>Use sample data</button>{/if}
     </div>
-    <input bind:this={input} type="file" accept=".xml,text/xml,application/xml" multiple hidden onchange={(e) => app.addFiles(e.currentTarget.files)} />
+    <input bind:this={input} type="file" accept=".xml,text/xml,application/xml" multiple hidden onchange={(e) => addTo(pickSlot, e.currentTarget.files)} />
 
     <div class="slots">
       {#each slots as sl}
@@ -208,7 +236,7 @@
           ondrop={(e) => {
             e.preventDefault();
             dragKey = '';
-            app.addFiles(e.dataTransfer?.files ?? null);
+            addTo(sl.key, e.dataTransfer?.files ?? null);
           }}
         >
           <div class="slot-head">
@@ -236,13 +264,18 @@
           {#if files.length}
             <div class="slot-files">{#each files as f}<span class="chip"><Icon name="file-table" size={14} />{f}</span>{/each}</div>
           {/if}
-          <button class="btn sm slot-btn" class:primary={!app.data} onclick={() => input.click()}><Icon name="upload" size={16} />{files.length ? 'Add another file' : 'Choose file'}</button>
+          {#if slotWarn[sl.key]}<p class="slot-warn" role="alert"><Icon name="warn" size={16} /><span>{slotWarn[sl.key]}</span></p>{/if}
+          <button
+            class="btn sm slot-btn"
+            class:primary={!app.data}
+            onclick={() => {
+              pickSlot = sl.key;
+              input.click();
+            }}
+          ><Icon name="upload" size={16} />{files.length ? 'Add another file' : 'Choose file'}</button>
         </div>
       {/each}
     </div>
-    {#if app.data && slots.every((sl) => filesFor(sl.from, sl.to).length) && app.files.length === 1}
-      <p class="one-file"><Icon name="info" size={16} /><span>One file covers both periods — that's fine when your account is newer than both periods' start dates.</span></p>
-    {/if}
 
     {#if app.busy}<p class="muted status" role="status">Reading files…</p>{/if}
 
@@ -398,6 +431,8 @@
   .slot-files { display: flex; flex-wrap: wrap; gap: 6px; }
   .chip { display: inline-flex; align-items: center; gap: 4px; font-size: 12px; padding: 2px 8px; border-radius: var(--r-pill); background: var(--surface-sunken); font-family: var(--font-mono); }
   .slot-btn { justify-self: start; }
+  .slot-warn { display: flex; gap: 6px; align-items: flex-start; font-size: 13px; color: var(--danger-text); }
+  .slot-warn :global(.icon) { flex: none; margin-top: 1px; }
   .one-file { display: flex; gap: 8px; align-items: flex-start; margin-top: 12px; font-size: 13px; color: var(--text-2); }
   .one-file :global(.icon) { color: var(--info); flex: none; margin-top: 2px; }
   .drop { display: grid; justify-items: center; gap: 6px; padding: 32px 16px; border: 1.5px dashed var(--border-strong); border-radius: var(--r-lg); text-align: center; cursor: pointer; transition: background var(--dur-1), border-color var(--dur-1); }
