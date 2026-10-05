@@ -53,7 +53,7 @@ const toc = [
 
   <section id="ai">
     <h2><span class="h-icon"><Icon name="sparkle" size={18} /></span>Quick way: Configure with AI</h2>
-    <p class="sec-lead">IBKR can build the query from one description of up to 200 characters. Each prompt generates a whole new query, so use this single prompt rather than several.</p>
+    <p class="sec-lead">IBKR's AI sets up the sections from one description of up to 200 characters; you then select the fields by hand. Each prompt generates a whole new query, so use this single prompt.</p>
     <ol class="vsteps">
       <li>
         <div>
@@ -68,25 +68,24 @@ const toc = [
             <div class="prompt-head"><b>Prompt · {prompt.length}/200 characters</b><button class="btn sm" data-copy={prompt}><Icon name="copy" size={16} /><span>Copy</span></button></div>
             <p>{prompt}</p>
           </div>
-          <p>Saying “all fields” matters: without it the AI picks a short default list that leaves out <b>Open Date Time</b>, each lot's purchase date.</p>
         </div>
       </li>
       <li>
         <div>
-          <b>Review the generated query</b>
+          <b>Click Edit Manually and press Select All in every section</b>
+          <p>Required. Even when asked for all fields, the AI usually keeps a short default list — without <b>Open Date Time</b> (each lot's purchase date) or <b>Conid</b>. Open each section, press <b>Select All</b>, and save the section.</p>
           <div class="kv check-kv">
-            <div class="kv-row"><span>Format</span><b>XML</b> </div>
+            <div class="kv-row"><span>Format</span><b>XML</b></div>
             <div class="kv-row"><span>Trades → Options</span><b>Execution and Closed Lots</b></div>
             <div class="kv-row"><span>Open Positions → Options</span><b>Lot</b></div>
             <div class="kv-row"><span>Trades and Open Positions fields</span><b>include Open Date Time</b></div>
           </div>
-          <p>If anything differs, click <b>Edit Manually</b>, fix it, and press <b>Select All</b> in any section with a short field list.</p>
         </div>
       </li>
       <li>
         <div>
           <b>Optional: add two more sections</b>
-          <p>In <b>Edit Manually</b>, add <b>Change in Dividend Accruals</b> (ex-dates for matching dividends to lots) and <b>Corporate Actions</b> (flags splits), each with <b>Select All</b>.</p>
+          <p>While editing, add <b>Change in Dividend Accruals</b> (ex-dates for matching dividends to lots) and <b>Corporate Actions</b> (flags splits), each with <b>Select All</b>.</p>
         </div>
       </li>
       <li>

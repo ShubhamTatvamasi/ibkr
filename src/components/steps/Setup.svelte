@@ -142,8 +142,8 @@
       <div class="callout warn">
         <Icon name="warn" />
         <div>
-          <b>Check before saving: format XML, Trades with Closed Lots, Open Positions at Lot level.</b>
-          <p>Trades and Open Positions must include <b>Open Date Time</b>. If a section's field list looks short, click Edit Manually and press Select All. Optionally add Change in Dividend Accruals and Corporate Actions there too.</p>
+          <b>Then click Edit Manually and press Select All in every section.</b>
+          <p>Required — the AI keeps a short default field list without <b>Open Date Time</b>, each lot's purchase date. Also check: format XML, Trades with Closed Lots, Open Positions at Lot level. Optionally add Change in Dividend Accruals and Corporate Actions.</p>
         </div>
       </div>
     </details>
