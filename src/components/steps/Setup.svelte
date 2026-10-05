@@ -309,11 +309,11 @@
       <div class="checks">
         {#each [...required, ...optional] as c}
           {@const bad = c.missingCritical.length > 0}
-          <div class="check" class:missing={!c.present} class:req={c.required} class:bad>
-            <span class="ck-icon" class:soft={c.present && !bad && c.missingRecommended.length > 0}><Icon name={bad ? 'error' : c.present ? (c.missingRecommended.length ? 'warn' : 'check-circle') : c.required ? 'error' : 'step-todo'} size={18} /></span>
+          <div class="check" class:missing={!c.present && !c.coveredBy} class:req={c.required} class:bad class:covered={c.coveredBy}>
+            <span class="ck-icon" class:soft={c.present && !bad && c.missingRecommended.length > 0}><Icon name={bad ? 'error' : c.present || c.coveredBy ? (c.missingRecommended.length ? 'warn' : 'check-circle') : c.required ? 'error' : 'step-todo'} size={18} /></span>
             <div>
               <b>{c.label}</b>
-              <span class="faint">{c.purpose}{!c.present && !c.required ? ' — optional, improves accuracy' : ''}</span>
+              <span class="faint">{c.coveredBy ? `Not needed — ${c.coveredBy} covers it` : `${c.purpose}${!c.present && !c.required ? ' — optional, improves accuracy' : ''}`}</span>
               {#if bad}<span class="miss crit">Missing: {c.missingCritical.join(', ')}</span>{/if}
               {#if c.missingRecommended.length}<span class="miss">Also not selected: {c.missingRecommended.join(', ')}</span>{/if}
             </div>
@@ -472,6 +472,7 @@
   .check.missing.req .ck-icon, .check.bad .ck-icon { color: var(--danger); }
   .check.bad { background: var(--danger-soft); }
   .ck-icon.soft { color: var(--warn); }
+  .check.covered .ck-icon { color: var(--text-3); }
   .miss { font-size: var(--fs-caption); color: var(--text-2); margin-top: 2px; }
   .miss.crit { color: var(--danger-text); font-weight: 600; }
 

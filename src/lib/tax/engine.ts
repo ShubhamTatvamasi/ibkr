@@ -205,6 +205,8 @@ export interface SectionCheck {
   missingCritical: string[];
   /** Missing fields that improve accuracy (fallbacks exist). */
   missingRecommended: string[];
+  /** Absent, but another section that was exported already provides this data. */
+  coveredBy?: string;
 }
 
 /** IBKR's on-screen field labels for the XML attributes we rely on. */
@@ -239,7 +241,7 @@ const FIELD_LABEL: Record<string, string> = {
   subCategory: 'Sub Category',
 };
 
-const SPEC: { section: string; label: string; required: boolean; purpose: string; critical: string[][]; recommended: string[] }[] = [
+const SPEC: { section: string; label: string; required: boolean; purpose: string; critical: string[][]; recommended: string[]; fallbackFor?: string }[] = [
   { section: 'Trades', label: 'Trades (with Closed Lots)', required: true, purpose: 'Capital gains, lot history', critical: [['openDateTime'], ['cost'], ['proceeds'], ['quantity'], ['tradeDate', 'dateTime'], ['currency']], recommended: ['conid', 'ibCommission', 'fifoPnlRealized', 'levelOfDetail', 'tradeID', 'isin', 'description'] },
   { section: 'OpenPositions', label: 'Open Positions (Lot level)', required: true, purpose: 'Schedule FA holdings', critical: [['openDateTime'], ['position', 'quantity'], ['markPrice'], ['costBasisMoney'], ['currency']], recommended: ['conid', 'reportDate', 'levelOfDetail', 'description', 'isin'] },
   { section: 'CashTransactions', label: 'Cash Transactions', required: true, purpose: 'Dividends, interest, US tax withheld', critical: [['type'], ['amount'], ['dateTime'], ['currency'], ['symbol']], recommended: ['conid', 'description', 'transactionID', 'issuerCountryCode', 'isin'] },
@@ -247,7 +249,7 @@ const SPEC: { section: string; label: string; required: boolean; purpose: string
   { section: 'PriorPeriodPositions', label: 'Prior Period Positions', required: false, purpose: 'Exact daily peak values', critical: [['date'], ['price']], recommended: ['conid'] },
   { section: 'StmtFunds', label: 'Statement of Funds', required: false, purpose: 'Daily cash balance (A2 peak)', critical: [['balance'], ['date']], recommended: [] },
   { section: 'SecuritiesInfo', label: 'Financial Instrument Information', required: false, purpose: 'Company names, ISIN, country', critical: [], recommended: ['description', 'isin', 'issuerCountryCode', 'subCategory'] },
-  { section: 'CashReport', label: 'Cash Report', required: false, purpose: 'Opening and closing cash', critical: [], recommended: [] },
+  { section: 'CashReport', label: 'Cash Report', required: false, purpose: 'Opening and closing cash', critical: [], recommended: [], fallbackFor: 'StmtFunds' },
   { section: 'ChangeInDividendAccruals', label: 'Change in Dividend Accruals', required: false, purpose: 'Ex-dates for dividend matching', critical: [], recommended: [] },
   { section: 'CorporateActions', label: 'Corporate Actions', required: false, purpose: 'Splits and mergers', critical: [], recommended: [] },
 ];
@@ -260,6 +262,7 @@ export function sectionChecklist(data: FlexData): SectionCheck[] {
     const has = (k: string) => fields.has(k);
     const missingCritical = present ? s.critical.filter((alts) => !alts.some(has)).map((alts) => FIELD_LABEL[alts[0]] ?? alts[0]) : [];
     const missingRecommended = present ? s.recommended.filter((k) => !has(k)).map((k) => FIELD_LABEL[k] ?? k) : [];
-    return { section: s.section, label: s.label, required: s.required, present, purpose: s.purpose, missingCritical, missingRecommended };
+    const coveredBy = !present && s.fallbackFor && data.sections.has(s.fallbackFor) ? SPEC.find((x) => x.section === s.fallbackFor)?.label : undefined;
+    return { section: s.section, label: s.label, required: s.required, present, purpose: s.purpose, missingCritical, missingRecommended, coveredBy };
   });
 }
