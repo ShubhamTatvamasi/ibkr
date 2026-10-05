@@ -245,10 +245,12 @@ function custodialAccount(
   const useLevel = lines.some((f) => f.levelOfDetail === 'Currency') ? 'Currency' : lines[0]?.levelOfDetail;
   const perCcy = new Map<string, Map<IsoDate, Decimal>>();
   const opening = new Map<string, Decimal>();
+  let carried = false; // a balance existed before 1 January
   for (const f of lines.filter((f) => f.levelOfDetail === useLevel)) {
     const ccy = f.currency === 'BASE_SUMMARY' ? account.baseCurrency : f.currency;
     if (f.date < ty.cyStart) {
       opening.set(ccy, f.balance);
+      carried = true;
       continue;
     }
     if (f.date > closeDate) continue;
@@ -260,7 +262,9 @@ function custodialAccount(
 
   if (perCcy.size > 0) {
     row.cashQuality = 'daily';
-    const dates = [...new Set([ty.cyStart, ...[...perCcy.values()].flatMap((m) => [...m.keys()]), closeDate])].sort();
+    // Start at 1 Jan only if there was a balance carried in; a new account starts at its first cash line.
+    const first = carried ? ty.cyStart : [...perCcy.values()].flatMap((m) => [...m.keys()]).sort()[0];
+    const dates = [...new Set([first ?? ty.cyStart, ...[...perCcy.values()].flatMap((m) => [...m.keys()]), closeDate])].sort();
     const current = new Map(opening);
     for (const d of dates) {
       let total = new Decimal(0);

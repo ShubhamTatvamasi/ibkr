@@ -2,6 +2,7 @@ import Decimal from 'decimal.js';
 import type { Conversion } from '../tax/fx';
 import type { Report } from '../tax/engine';
 import { QUARTER_LABELS } from '../tax/years';
+import { formatDate } from '../dates';
 import { toCsv, type Cell } from './csv';
 import { entityFor } from '../assets';
 
@@ -60,7 +61,7 @@ export function buildPack(r: Report, entities: EntityOverrides = {}): PackFile[]
 
   // ---------- schedules, in the order they are filed ----------
   add({
-    name: '01_form67.csv',
+    name: ty.newAct ? '01_form44.csv' : '01_form67.csv',
     title: `${ty.law.ftcForm} — foreign tax credit`,
     description: 'Part A rows: one per country and source of income on which tax was withheld abroad.',
     usedFor: [ty.law.ftcForm],
@@ -226,9 +227,9 @@ export function buildPack(r: Report, entities: EntityOverrides = {}): PackFile[]
     usedFor: ['Schedule FA', 'CA review'],
     category: 'working',
     table: [
-      ['Symbol', 'ISIN', 'Entity', 'Country', 'Currency', 'Acquired', 'Qty at start of CY', 'Qty at 31 Dec', 'Initial value (foreign)', 'Initial TTBR', 'Initial TTBR date', 'Initial value (INR)', 'Peak date', 'Peak qty', 'Peak price', 'Peak TTBR', 'Peak value (INR)', 'Peak method', '31 Dec price', 'Closing TTBR', 'Closing TTBR date', 'Closing value (INR)', 'Dividends credited (foreign)', 'Dividends credited (INR)', 'Sale proceeds (foreign)', 'Sale proceeds (INR)'],
+      ['Symbol', 'ISIN', 'Entity', 'Country', 'Currency', 'Acquired', 'Qty at start of CY', `Qty at ${fa.closeDate}`, 'Initial value (foreign)', 'Initial TTBR', 'Initial TTBR date', 'Initial value (INR)', 'Peak date', 'Peak qty', 'Peak price', 'Peak TTBR', 'Peak value (INR)', 'Peak method', `Price on ${fa.closeDate}`, 'Closing TTBR', 'Closing TTBR date', 'Closing value (INR)', 'Dividends credited (foreign)', 'Dividends credited (INR)', 'Sale proceeds (foreign)', 'Sale proceeds (INR)'],
       ...fa.a3.map((row): Cell[] => [
-        row.lot.symbol, row.isin, row.entityName, row.country.name, row.lot.currency, row.acquired, qty(row.qtyStart), qty(row.qtyEnd),
+        row.lot.symbol, row.isin, entityFor(row.lot.symbol, row.isin, row.entityName, entities).name, row.country.name, row.lot.currency, row.acquired, qty(row.qtyStart), qty(row.qtyEnd),
         fx2(row.initial?.foreign), rate(row.initial), rateDate(row.initial), rupees(row.initial?.inr),
         row.peak?.date, row.peak ? qty(row.peak.qty) : '', fx2(row.peak?.price), row.peak?.rate.toString(), rupees(row.peak?.inr), row.peakQuality,
         fx2(row.closingPrice), rate(row.closing), row.closing ? rateDate(row.closing) : '', rupees(row.closing?.inr) ?? 0,
@@ -265,36 +266,65 @@ export function buildPack(r: Report, entities: EntityOverrides = {}): PackFile[]
 
 function readme(r: Report, files: PackFile[]): string {
   const ty = r.year;
+  const fd = (d: string) => formatDate(d);
+  const fa = r.fa.a3.length + r.fa.a2.length > 0;
+  const ftc = r.foreign.form67.length > 0;
+  const cg = r.cg.rows.length > 0;
+  const os = r.income.dividends.length + r.income.interest.length > 0;
+  const provisional = r.periods.fa.inProgress || r.periods.fy.inProgress;
+  const needed = files.filter((f) => f.category === 'schedule' && !f.empty);
+
+  const steps: string[] = [];
+  if (ftc) steps.push(`${ty.law.ftcForm} (foreign tax credit) — file it before the return`);
+  const schedules = [cg && 'Schedule CG', os && 'Schedule OS', ftc && 'Schedules FSI and TR', fa && 'Schedule FA (Tables A2 and A3)'].filter(Boolean);
+  if (schedules.length) steps.push(`ITR-2: ${schedules.join(', ')}`);
+  if (fa) steps.push('Part B-TTI: answer "Yes" to the foreign-assets question');
+  if (r.insights.remittances.count) steps.push('Schedule TCS: claim tax collected at source on your remittances, as shown in Form 26AS');
+
   const lines = [
     `IBKR → India tax pack — ${ty.label}`,
     `Account ${r.account.accountId}. Generated ${new Date().toISOString().slice(0, 10)} in the browser; no data left the device.`,
     '',
-    `Law: ${ty.law.act}. Conversions at SBI TT buying rates (${ty.law.conversionRule}; foreign tax credit ${ty.law.ftcRule}).`,
-    `Schedule FA covers calendar year ${ty.cyStart} to ${ty.cyEnd}. Schedules CG, OS, FSI and TR cover ${ty.fyStart} to ${ty.fyEnd}.`,
+    ...(provisional
+      ? [
+          `PROVISIONAL: the year isn't over. Figures are as of ${fd(r.fa.closeDate)}. Export again from IBKR after ${fd(r.periods.fy.inProgress ? ty.fyEnd : ty.cyEnd)} and rebuild this pack before filing.`,
+          '',
+        ]
+      : []),
+    `Law: ${ty.law.act}. Conversions at SBI TT buying rates (${ty.law.conversionRule}${ftc ? `; foreign tax credit ${ty.law.ftcRule}` : ''}).`,
+    `Schedule FA covers calendar year ${ty.cyStart.slice(0, 4)}${r.periods.fa.needFrom > ty.cyStart ? ` (from your account's start on ${fd(r.periods.fa.needFrom)})` : ''}. Other schedules cover ${fd(ty.fyStart)} – ${fd(ty.fyEnd)}.`,
     '',
-    'Order of filing:',
-    `  1. ${ty.law.ftcForm} (foreign tax credit) — file before the return.`,
-    '  2. ITR-2: Schedule CG, OS, FSI, TR, FA, then answer "Yes" to the foreign-assets question in Part B-TTI.',
+    'What to file:',
+    ...(steps.length ? steps.map((s, i) => `  ${i + 1}. ${s}`) : ['  Nothing to report from this account for this year.']),
+    '',
+    'Files with something to report:',
+    ...(needed.length ? needed.map((f) => `  ${f.name.replace(/^[^_]+_/, '')} — ${f.title}`) : ['  none']),
+    '  Schedule FA has no file upload on the portal: enter each row (the tool\'s "File your return" step has a copy button per field).',
+    '',
+    'All files:',
+    '  00_README.txt — this file',
+    ...files.map((f) => `  ${f.name.replace(/^[^_]+_/, '')} — ${f.title}${f.empty ? ' (nothing to report)' : ''}`),
     '',
     'Settings used:',
     `  Residential status: ${r.settings.residency}`,
-    `  Capital gains conversion: ${r.settings.cgFxMethod === 'split' ? 'sale value and cost converted separately (month-end before sale / before purchase)' : 'foreign-currency gain converted at the month-end rate before the sale'}`,
-    `  Schedule FA income and proceeds: ${r.settings.faIncomeRate === 'txn' ? 'SBI rate on the transaction date' : 'SBI rate on 31 December'}`,
-    `  Broker interest: ${r.settings.interestRate === 'fyEnd' ? `SBI rate on ${ty.fyEnd}` : 'SBI rate at month-end before each credit'}`,
-    `  Marginal tax rate (for the foreign tax credit limit): ${r.settings.marginalRatePct}%`,
-    '',
-    'Files:',
-    '  00_README.txt — this file',
-    ...files.map((f) => `  ${f.name.replace(/^[^_]+_/, '')} — ${f.title}. ${f.description}`),
+    ...(cg ? [`  Capital gains conversion: ${r.settings.cgFxMethod === 'split' ? 'sale value and cost converted separately' : 'foreign-currency gain converted at the month-end rate before the sale'}`] : []),
+    ...(fa ? [`  Schedule FA income and proceeds: ${r.settings.faIncomeRate === 'txn' ? 'SBI rate on the transaction date' : 'SBI rate on 31 December'}`] : []),
+    ...(r.income.interest.length ? [`  Broker interest: ${r.settings.interestRate === 'fyEnd' ? `SBI rate on ${fd(ty.fyEnd)}` : 'SBI rate at month-end before each credit'}`] : []),
+    ...(ftc ? [`  Marginal tax rate (foreign tax credit limit): ${r.settings.marginalRatePct}%`] : []),
     '',
     'Method notes:',
-    "  Schedule FA A3 has one row per purchase lot. Peak value = highest of (shares held x that day's price x that day's SBI rate) during the calendar year.",
-    '  Dividends are attributed only to lots held on the day before the ex-date. Closing balance uses the 31 December price and rate.',
-    '  US shares are not listed in India: long-term only if held more than 24 months, taxed at 12.5% without indexation; short-term at slab rates.',
-    `  Dividends are reported gross (before US withholding); the withholding is claimed through Schedules FSI/TR and ${ty.law.ftcForm}.`,
-    '  Table F values are net gains per period with losses absorbed by later gains, never negative. Re-check against Schedule BFLA.',
-    '  Schedule FA has no official bulk upload; enter rows on the portal (or the offline utility) using the A2/A3 files, which follow the portal column order.',
-    '  Company names and addresses come from your own entries, then the tool\'s address book of public issuer records; IBKR data has neither.',
+    ...(fa
+      ? [
+          '  Schedule FA A3: one row per purchase lot. Initial value = cost incl. commission x SBI rate on the purchase date.',
+          "  Peak value = highest of (units held x that day's closing price x that day's SBI rate) during the calendar year.",
+          `  Closing balance = units held x price x SBI rate on ${provisional && r.periods.fa.inProgress ? fd(r.fa.closeDate) + ' (provisional; 31 December once the year ends)' : '31 December'}.`,
+          '  Table A2: peak and closing cash from the daily cash balance; gross amounts credited, one row per nature.',
+          '  When SBI published no rate on a date (holiday), the latest earlier rate is used — see exchange_rates_used.csv.',
+          '  Names and addresses: your own entries, else the address book of public issuer records.',
+        ]
+      : []),
+    ...(cg ? ['  Capital gains: foreign shares are long-term only if held more than 24 months (12.5%, no indexation); short-term at slab rates.'] : []),
+    ...(os ? [`  Dividends are reported gross; any withholding is claimed through Schedules FSI/TR and ${ty.law.ftcForm}.`] : []),
     '',
     'Warnings raised:',
     ...(r.warnings.length ? r.warnings.map((w) => `  [${w.level.toUpperCase()}] ${w.area}: ${w.message}`) : ['  none']),

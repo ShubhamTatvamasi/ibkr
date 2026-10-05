@@ -22,6 +22,7 @@
   const needed = $derived(files.filter((f) => f.category === 'schedule' && !f.empty));
   const scheduleLink: Record<string, string> = {
     '01_form67.csv': 'form67',
+    '01_form44.csv': 'form67',
     '02_schedule_cg.csv': 'cg',
     '03_schedule_os.csv': 'os',
     '04_schedule_fsi.csv': 'fsi',
