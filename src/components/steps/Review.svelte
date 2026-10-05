@@ -100,11 +100,11 @@
   <section class="group">
     <h2 class="g-title warn"><Icon name="building" />Needs your input</h2>
     <ul class="issues">
-      {#if !app.settings.tin.trim()}
+      {#if app.needsTin}
         <li class="issue warn">
           <div>
             <span class="area">Schedules FSI and TR</span>
-            <p>Taxpayer Identification Number for the foreign country. If none was allotted to you, use your passport number.</p>
+            <p>You have foreign income this year, so Schedules FSI and TR need a Taxpayer Identification Number for the foreign country. IBKR doesn't report one and Indian residents usually have no US TIN (your W-8BEN uses your PAN) — use your passport number.</p>
             <label class="field narrow"><span>Foreign TIN or passport number</span><input bind:value={app.settings.tin} autocomplete="off" /></label>
           </div>
         </li>

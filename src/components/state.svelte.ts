@@ -85,7 +85,9 @@ class AppState {
     (this.report?.warnings.filter((w) => w.level === 'error' && !w.message.includes('enter it manually')).length ?? 0) + (this.report?.missingRates.length ?? 0),
   );
   /** Things only the user can supply: company addresses and the foreign TIN. */
-  needsInput = $derived(this.report ? this.missingAddresses.length + (this.settings.tin.trim() ? 0 : 1) : 0);
+  /** Schedules FSI/TR (and so the foreign TIN) only apply when there is foreign income. */
+  needsTin = $derived(!!this.report?.foreign.fsi.length && !this.settings.tin.trim());
+  needsInput = $derived(this.report ? this.missingAddresses.length + (this.needsTin ? 1 : 0) : 0);
 
   constructor() {
     if (typeof window !== 'undefined') {

@@ -350,7 +350,7 @@
       <label class="field">
         <span>Foreign Taxpayer Identification Number</span>
         <input bind:value={app.settings.tin} placeholder="US TIN, or your passport number" autocomplete="off" />
-        <small>Needed in Schedules FSI and TR. If no foreign TIN was issued, the passport number is accepted.</small>
+        <small>Only needed if you have foreign income (dividends, interest or capital gains) — for Schedules FSI and TR. IBKR doesn't report it; without a US TIN, use your passport number.</small>
       </label>
     </div>
   </section>
