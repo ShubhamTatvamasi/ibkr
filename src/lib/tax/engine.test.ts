@@ -5,6 +5,8 @@ import { TtbrTable } from '../fx/ttbr';
 import { DEFAULT_SETTINGS } from './common';
 import { accountsIn, buildReport } from './engine';
 import { Fx } from './fx';
+import Decimal from 'decimal.js';
+import { nonNegativeAccrual } from './cg';
 
 const read = (p: string) => readFileSync(new URL(`../../../public/${p}`, import.meta.url), 'utf8');
 
@@ -78,5 +80,55 @@ describe('engine on the fictional sample exports (AY 2026-27)', () => {
     expect(a2.cashQuality).toBe('daily');
     expect(a2.peak!.inr.gt(a2.closing!)).toBe(true);
     expect(a2.credited.map((c) => c.code)).toEqual(['D', 'I', 'S']);
+  });
+
+  it('derives insights from the latest holdings', () => {
+    const ins = report.insights;
+    expect(ins.asOf).toBe('2026-03-31');
+    // AAPL 5 + 10, NVDA 15, VOO 8 + 5 → five open lots.
+    expect(ins.holdings.map((h) => `${h.symbol} ${h.qty}`)).toEqual(['AAPL 5', 'AAPL 10', 'NVDA 15', 'VOO 8', 'VOO 5']);
+    const voo = ins.holdings.find((h) => h.acquired === '2023-11-20')!;
+    expect(voo.longTermFrom).toBe('2025-11-21');
+    expect(voo.daysToLongTerm).toBe(0);
+    expect(ins.usSitusUsd.gt(0)).toBe(true);
+    expect(ins.overWithheld).toEqual([]);
+    expect(ins.remittances.count).toBe(0);
+  });
+});
+
+describe('Table F accrual', () => {
+  const run = (xs: number[]) => nonNegativeAccrual(xs.map((x) => new Decimal(x))).map((d) => d.toNumber());
+
+  it('passes gains straight through', () => {
+    expect(run([100, 0, 50, 0, 0])).toEqual([100, 0, 50, 0, 0]);
+  });
+
+  it('absorbs an early loss into later gains', () => {
+    expect(run([-80, 100, 30, 0, 0])).toEqual([0, 20, 30, 0, 0]);
+  });
+
+  it('nets a later loss against what is left to report, never negative', () => {
+    expect(run([100, -150, 70, 0, 0])).toEqual([100, 0, 0, 0, 0]);
+  });
+});
+
+describe('foreign income schedules (sample)', () => {
+  const { data, fx } = load();
+  const report = buildReport(data, accountsIn(data)[0], 2026, { ...DEFAULT_SETTINGS, tin: 'P1234567' }, fx);
+
+  it('builds one Form 67 row for US dividends', () => {
+    expect(report.foreign.form67.map((f) => `${f.country.iso} ${f.source}`)).toEqual(['US Dividend']);
+  });
+
+  it('reports capital gains and other sources in Schedule FSI, relief only on OS', () => {
+    const us = report.foreign.fsi[0];
+    expect(us.heads.map((h) => h.head)).toEqual(['Capital Gains', 'Other Sources']);
+    expect(us.heads[0].reliefInr.isZero()).toBe(true);
+    expect(us.total.reliefInr.equals(report.foreign.totals.reliefInr)).toBe(true);
+  });
+
+  it('lists every exchange rate it used', () => {
+    expect(report.rates.length).toBeGreaterThan(100);
+    expect(report.rates.every((r) => r.usedFor.size > 0)).toBe(true);
   });
 });

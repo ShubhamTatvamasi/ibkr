@@ -70,7 +70,7 @@ export interface OpenLot {
   markPrice: Decimal;
 }
 
-export type CashKind = 'dividend' | 'interest' | 'withholding' | 'other';
+export type CashKind = 'dividend' | 'interest' | 'withholding' | 'transfer' | 'other';
 
 export interface CashTxn {
   accountId: string;

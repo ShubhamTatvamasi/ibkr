@@ -2,7 +2,7 @@ import Decimal from 'decimal.js';
 import type { Conversion } from '../tax/fx';
 import type { Report } from '../tax/engine';
 import { QUARTER_LABELS } from '../tax/years';
-import { toCsv, toPortalCsv, type Cell } from './csv';
+import { toCsv, type Cell } from './csv';
 
 export interface EntityOverride {
   address?: string;
@@ -17,213 +17,263 @@ const qty = (d: Decimal) => d.toDecimalPlaces(6).toString();
 const rate = (c: Conversion | undefined) => (c ? c.rate.toString() : '');
 const rateDate = (c: Conversion | undefined) => (c ? (c.manual ? `${c.rateDate} (manual)` : c.rateDate) : 'MISSING');
 
+export type PackCategory = 'schedule' | 'working' | 'reference';
+
 export interface PackFile {
   name: string;
   title: string;
+  description: string;
+  usedFor: string[];
+  category: PackCategory;
+  rows: number;
   content: string;
+  /** Parsed rows for previews (header first); absent for text files. */
+  table?: Cell[][];
+}
+
+export function packPrefix(r: Report): string {
+  const y = r.year.ayStart;
+  return r.year.newAct ? `TY${y - 1}-${String(y % 100).padStart(2, '0')}` : `AY${y}-${String((y + 1) % 100).padStart(2, '0')}`;
 }
 
 export function buildPack(r: Report, entities: EntityOverrides = {}): PackFile[] {
+  const { year: ty, fa, cg, income, foreign } = r;
+  const pre = packPrefix(r);
   const files: PackFile[] = [];
-  const { year: ty, fa, cg, income } = r;
+  const add = (f: Omit<PackFile, 'rows' | 'content' | 'name'> & { name: string; table: Cell[][] }) =>
+    files.push({ name: `${pre}_${f.name}`, title: f.title, description: f.description, usedFor: f.usedFor, category: f.category, rows: Math.max(0, f.table.length - 1), content: toCsv(f.table), table: f.table });
 
-  // ---- Schedule FA A3 (portal upload format) ----
-  files.push({
-    name: 'schedule_fa_A3_portal_upload.csv',
-    title: 'Schedule FA — Table A3, e-filing bulk-upload layout',
-    content: toPortalCsv(
-      [
-        'Country/Region name',
-        'Country Name and Code',
-        'Name of entity',
-        'Address of entity',
-        'ZIP Code',
-        'Nature of entity',
-        'Date of acquiring the interest',
-        'Initial value of the investment',
-        'Peak value of investment during the Period',
-        'Closing balance',
-        'Total gross amount paid/credited with respect to the holding during the period',
-        'Total gross proceeds from sale or redemption of investment during the period',
-      ],
-      fa.a3.map((row, i) => [
-        i + 1,
-        row.country.itrCode,
-        row.entityName,
-        entities[row.lot.symbol]?.address,
-        entities[row.lot.symbol]?.zip,
-        row.natureOfEntity,
-        row.acquired,
-        rupees(row.initial?.inr) ?? '',
-        rupees(row.peak?.inr) ?? '',
-        rupees(row.closing?.inr) ?? 0,
-        rupees(row.dividends.inr) ?? 0,
-        rupees(row.proceeds.inr) ?? 0,
-      ]),
-    ),
+  // ---------- schedules, in the order they are filed ----------
+  add({
+    name: '01_form67.csv',
+    title: `${ty.law.ftcForm} — foreign tax credit`,
+    description: 'Part A rows: one per country and source of income on which tax was withheld abroad.',
+    usedFor: [ty.law.ftcForm],
+    category: 'schedule',
+    table: [
+      ['Sl. No.', 'Name of the country', 'Source of income', 'Income from outside India', 'Tax paid outside India - Amount', 'Tax paid outside India - Rate (%)', 'Tax payable on such income under normal provisions in India', 'Article No. of DTAA', 'Rate of tax as per DTAA (%)', 'Credit claimed u/s 90 - Amount', 'Credit claimed u/s 91 - Amount', 'Total foreign tax credit claimed'],
+      ...foreign.form67.map((f, i): Cell[] => [i + 1, f.country.name, f.source, rupees(f.incomeInr), rupees(f.taxPaidInr), f.taxRatePct.toFixed(2), rupees(f.indianTaxInr), f.article, f.dtaaRatePct ?? '', rupees(f.creditInr), 0, rupees(f.creditInr)]),
+    ],
   });
 
-  files.push({
-    name: 'schedule_fa_A3_workings.csv',
-    title: 'Schedule FA — Table A3 workings (one row per lot, with every rate and date)',
-    content: toCsv([
-      [
-        'Symbol', 'ISIN', 'Entity', 'Country', 'ITR country code', 'Currency', 'Acquired', 'Qty at start of CY', 'Qty at 31 Dec',
-        'Initial value (foreign)', 'Initial TTBR', 'Initial TTBR date', 'Initial value (INR)',
-        'Peak date', 'Peak qty', 'Peak price', 'Peak TTBR', 'Peak value (INR)', 'Peak method',
-        '31 Dec price', 'Closing TTBR', 'Closing TTBR date', 'Closing value (INR)',
-        'Dividends credited (foreign)', 'Dividends credited (INR)', 'Sale proceeds (foreign)', 'Sale proceeds (INR)',
-      ],
-      ...fa.a3.map((row): Cell[] => [
-        row.lot.symbol, row.isin, row.entityName, row.country.name, row.country.itrCode, row.lot.currency, row.acquired, qty(row.qtyStart), qty(row.qtyEnd),
-        fx2(row.initial?.foreign), rate(row.initial), rateDate(row.initial), rupees(row.initial?.inr),
-        row.peak?.date, row.peak ? qty(row.peak.qty) : '', fx2(row.peak?.price), row.peak?.rate.toString(), rupees(row.peak?.inr), row.peakQuality,
-        fx2(row.closingPrice), rate(row.closing), row.closing ? rateDate(row.closing) : '', rupees(row.closing?.inr) ?? 0,
-        fx2(row.dividends.foreign), rupees(row.dividends.inr), fx2(row.proceeds.foreign), rupees(row.proceeds.inr),
-      ]),
-    ]),
+  const cgRow = (label: string, st: Decimal | number | undefined, lt: Decimal | number | undefined): Cell[] => [label, typeof st === 'number' ? st : rupees(st), typeof lt === 'number' ? lt : rupees(lt)];
+  add({
+    name: '02_schedule_cg.csv',
+    title: 'Schedule CG — capital gains',
+    description: 'Section A5 (short-term) and B8 (long-term) fields, and Table F quarterly accrual.',
+    usedFor: ['Schedule CG'],
+    category: 'schedule',
+    table: [
+      ['Field', 'A5 Short-term (other assets)', 'B8 Long-term (other assets)'],
+      cgRow('a(ii) Full value of consideration', cg.stcg.saleInr, cg.ltcg.saleInr),
+      cgRow('b(i) Cost of acquisition without indexation', cg.stcg.costInr, cg.ltcg.costInr),
+      cgRow('b(ii) Cost of improvement without indexation', 0, 0),
+      cgRow('b(iii) Expenditure wholly and exclusively in connection with transfer', cg.stcg.expensesInr, cg.ltcg.expensesInr),
+      cgRow('b(iv) Total', cg.stcg.costInr.add(cg.stcg.expensesInr), cg.ltcg.costInr.add(cg.ltcg.expensesInr)),
+      cgRow('c Balance', cg.stcg.gainInr, cg.ltcg.gainInr),
+      ...QUARTER_LABELS.map((q, i) => cgRow(`Table F — ${q}`, cg.stcg.tableF[i], cg.ltcg.tableF[i])),
+    ],
   });
 
-  // ---- Schedule FA A2 ----
-  const a2rows: Cell[][] = [];
+  add({
+    name: '03_schedule_os.csv',
+    title: 'Schedule OS — dividends and interest',
+    description: 'Gross dividends (1a(i)), broker interest (1b(ix)) and the dividend quarterly breakup.',
+    usedFor: ['Schedule OS'],
+    category: 'schedule',
+    table: [
+      ['Field', 'Value (INR)'],
+      ['1a(i) Dividend income [other than (ii) and (iii)]', rupees(income.dividendTotalInr)],
+      ['1b(ix) Others including interest from Companies, NBFCs & HFCs', rupees(income.interestTotalInr)],
+      ...QUARTER_LABELS.map((q, i): Cell[] => [`Item 10, 3(a) Dividend — ${q}`, rupees(income.dividendQuarters[i])]),
+    ],
+  });
+
+  add({
+    name: '04_schedule_fsi.csv',
+    title: 'Schedule FSI — income from outside India',
+    description: 'Per country and head: income, tax paid abroad, Indian tax, relief and DTAA article.',
+    usedFor: ['Schedule FSI'],
+    category: 'schedule',
+    table: [
+      ['Country', 'Country code', 'Taxpayer Identification Number', 'Head of income', '(b) Income from outside India', '(c) Tax paid outside India', '(d) Tax payable on such income under normal provisions in India', '(e) Tax relief available in India', '(f) Relevant article of DTAA'],
+      ...foreign.fsi.flatMap((c) =>
+        c.heads.map((h): Cell[] => [c.country.name, c.country.itrCode, r.settings.tin, h.head, rupees(h.incomeInr), rupees(h.taxPaidInr), rupees(h.indianTaxInr), rupees(h.reliefInr), h.article]),
+      ),
+    ],
+  });
+
+  add({
+    name: '05_schedule_tr.csv',
+    title: 'Schedule TR — summary of tax relief',
+    description: 'Per country totals from Schedule FSI, claimed under section 90.',
+    usedFor: ['Schedule TR'],
+    category: 'schedule',
+    table: [
+      ['(a) Country Code', 'Country', '(b) Taxpayer Identification Number', '(c) Total taxes paid outside India', '(d) Total tax relief available', '(e) Tax Relief Claimed under section'],
+      ...foreign.tr.map((t): Cell[] => [t.country.itrCode, t.country.name, r.settings.tin, rupees(t.taxPaidInr), rupees(t.reliefInr), t.section]),
+    ],
+  });
+
+  const a2: Cell[][] = [];
   for (const a of fa.a2) {
-    const natures = a.credited.length ? a.credited : [{ nature: 'No amount paid/credited', code: 'N', inr: new Decimal(0) }];
+    const natures = a.credited.length ? a.credited : [{ nature: 'No Amount paid/credited', code: 'N', inr: new Decimal(0) }];
     for (const n of natures) {
-      a2rows.push([
-        a2rows.length + 1, a.country.itrCode, a.institution.name, a.institution.address, a.institution.zip, a.account.accountId,
-        'Owner', a.account.dateOpened ?? '', rupees(a.peak?.inr) ?? '', rupees(a.closing) ?? '', n.nature, rupees(n.inr) ?? 0,
-      ]);
+      a2.push([a2.length + 1, `${a.country.itrCode} - ${a.country.name}`, a.institution.name, a.institution.address, a.institution.zip, a.account.accountId, 'Owner', a.account.dateOpened ?? '', rupees(a.peak?.inr), rupees(a.closing), `${n.code} - ${n.nature}`, rupees(n.inr) ?? 0]);
     }
   }
-  files.push({
-    name: 'schedule_fa_A2_portal_upload.csv',
-    title: 'Schedule FA — Table A2 (custodial account), e-filing bulk-upload layout',
-    content: toPortalCsv(
-      ['Country/Region name', 'Country Name and Code', 'Name of financial institution', 'Address of financial institution', 'ZIP Code', 'Account Number', 'Status', 'Account opening date', 'Peak Balance During the Period', 'Closing balance', 'Nature of Amount', 'Amount'],
-      a2rows,
-    ),
+  add({
+    name: '06_schedule_fa_A2.csv',
+    title: 'Schedule FA — Table A2, custodial account',
+    description: `Your IBKR account for calendar year ${ty.cyStart.slice(0, 4)}: peak and closing cash, and gross amounts credited (one row per nature).`,
+    usedFor: ['Schedule FA'],
+    category: 'schedule',
+    table: [
+      ['Sl.No.', 'Country Name and Code', 'Name of financial institution', 'Address of financial institution', 'ZIP Code', 'Account Number', 'Status', 'Account opening date', 'Peak Balance During the Period', 'Closing balance', 'Nature of Amount', 'Amount'],
+      ...a2,
+    ],
   });
 
-  // ---- Capital gains ----
-  files.push({
-    name: 'capital_gains_workings.csv',
-    title: `Capital gains workings — per sold lot, ${ty.law.conversionRule} rates (method: ${r.settings.cgFxMethod === 'split' ? 'sale and cost converted separately' : 'foreign-currency gain converted at sale-month rate'})`,
-    content: toCsv([
-      [
-        'Symbol', 'Description', 'Currency', 'Acquired', 'Sold', 'Quantity', 'Term', 'Holding needed (months)', 'Tax rate', 'Quarter (234C)',
-        'Sale value (foreign)', 'Sale commission (foreign)', 'Cost incl. buy commission (foreign)', 'Gain (foreign)', 'IBKR realized P/L',
-        'Sale TTBR', 'Sale TTBR date', 'Cost TTBR', 'Cost TTBR date',
-        'Full value of consideration (INR)', 'Expenses on transfer (INR)', 'Cost of acquisition (INR)', 'Gain (INR)',
-      ],
+  add({
+    name: '07_schedule_fa_A3.csv',
+    title: 'Schedule FA — Table A3, equity holdings',
+    description: `One row per purchase lot held at any time in calendar year ${ty.cyStart.slice(0, 4)}, in the portal's column order.`,
+    usedFor: ['Schedule FA'],
+    category: 'schedule',
+    table: [
+      ['Sl.No.', 'Country Name and Code', 'Name of entity', 'Address of entity', 'ZIP Code', 'Nature of entity', 'Date of acquiring the interest', 'Initial value of the investment', 'Peak value of investment during the Period', 'Closing balance', 'Total gross amount paid/credited with respect to the holding during the period', 'Total gross proceeds from sale or redemption of investment during the period'],
+      ...fa.a3.map((row, i): Cell[] => [
+        i + 1, `${row.country.itrCode} - ${row.country.name}`, row.entityName, entities[row.lot.symbol]?.address ?? '', entities[row.lot.symbol]?.zip ?? '', row.natureOfEntity, row.acquired,
+        rupees(row.initial?.inr), rupees(row.peak?.inr), rupees(row.closing?.inr) ?? 0, rupees(row.dividends.inr) ?? 0, rupees(row.proceeds.inr) ?? 0,
+      ]),
+    ],
+  });
+
+  // ---------- working papers ----------
+  add({
+    name: 'working_capital_gains.csv',
+    title: 'Capital gains — every sold lot',
+    description: `Acquisition and sale dates, holding period, foreign amounts, SBI rates with dates, INR values (${r.settings.cgFxMethod === 'split' ? 'sale and cost converted separately' : 'gain converted at the sale-month rate'}).`,
+    usedFor: ['Schedule CG', 'CA review'],
+    category: 'working',
+    table: [
+      ['Symbol', 'Description', 'Currency', 'Acquired', 'Sold', 'Quantity', 'Term', 'Holding needed (months)', 'Tax rate', 'Quarter (234C)', 'Sale value (foreign)', 'Sale commission (foreign)', 'Cost incl. buy commission (foreign)', 'Gain (foreign)', 'IBKR realized P/L', 'Sale TTBR', 'Sale TTBR date', 'Cost TTBR', 'Cost TTBR date', 'Full value of consideration (INR)', 'Expenses on transfer (INR)', 'Cost of acquisition (INR)', 'Gain (INR)'],
       ...cg.rows.map((row): Cell[] => [
         row.lot.symbol, row.description, row.lot.currency, row.lot.openDate, row.lot.closeDate, qty(row.lot.quantity), row.term, row.monthsRequired, row.rateNote, QUARTER_LABELS[row.quarter],
         fx2(row.lot.proceeds), fx2(row.lot.commission), fx2(row.lot.cost), fx2(row.gainForeign), fx2(row.lot.realizedPnl),
         rate(row.saleRate), rateDate(row.saleRate), rate(row.costRate), rateDate(row.costRate),
         rupees(row.saleInr), rupees(row.expensesInr), rupees(row.costInr), rupees(row.gainInr),
       ]),
-    ]),
+    ],
   });
-
-  // ---- Dividends / interest ----
-  files.push({
-    name: 'dividend_workings.csv',
-    title: `Dividends — gross, ${ty.law.conversionRule} (TTBR on last day of month before payment)`,
-    content: toCsv([
+  add({
+    name: 'working_dividends.csv',
+    title: 'Dividends — every payment',
+    description: `Gross amount, tax withheld, SBI rate on the last day of the month before payment (${ty.law.conversionRule}).`,
+    usedFor: ['Schedule OS', 'Schedule FSI'],
+    category: 'working',
+    table: [
       ['Pay date', 'Symbol', 'Description', 'Country', 'Currency', 'Gross (foreign)', 'Tax withheld (foreign)', 'TTBR', 'TTBR date', 'Gross (INR)', 'Quarter (234C)'],
-      ...income.dividends.map((d): Cell[] => [
-        d.txn.date, d.txn.symbol, d.description, d.country.name, d.txn.currency, fx2(d.txn.amount), fx2(d.withheldForeign), rate(d.conv), rateDate(d.conv), rupees(d.conv?.inr), QUARTER_LABELS[d.quarter],
-      ]),
-    ]),
+      ...income.dividends.map((d): Cell[] => [d.txn.date, d.txn.symbol, d.description, d.country.name, d.txn.currency, fx2(d.txn.amount), fx2(d.withheldForeign), rate(d.conv), rateDate(d.conv), rupees(d.conv?.inr), QUARTER_LABELS[d.quarter]]),
+    ],
   });
-  files.push({
-    name: 'interest_workings.csv',
-    title: `Broker interest — ${r.settings.interestRate === 'fyEnd' ? `TTBR on ${ty.fyEnd} (other income, ${ty.law.conversionRule})` : 'TTBR on last day of month before credit'}`,
-    content: toCsv([
+  add({
+    name: 'working_interest.csv',
+    title: 'Broker interest — every credit',
+    description: r.settings.interestRate === 'fyEnd' ? `Converted at the SBI rate on ${ty.fyEnd}.` : 'Converted at the SBI rate on the last day of the month before each credit.',
+    usedFor: ['Schedule OS'],
+    category: 'working',
+    table: [
       ['Date', 'Description', 'Currency', 'Amount (foreign)', 'TTBR', 'TTBR date', 'Amount (INR)'],
       ...income.interest.map((d): Cell[] => [d.txn.date, d.description, d.txn.currency, fx2(d.txn.amount), rate(d.conv), rateDate(d.conv), rupees(d.conv?.inr)]),
-    ]),
+    ],
   });
-
-  // ---- Foreign tax credit ----
-  files.push({
-    name: 'foreign_tax_credit_workings.csv',
-    title: `Foreign tax withheld — per deduction, ${ty.law.ftcRule} (TTBR on last day of month before deduction); evidence for ${ty.law.ftcForm}`,
-    content: toCsv([
+  add({
+    name: 'working_foreign_tax.csv',
+    title: 'Foreign tax withheld — every deduction',
+    description: `Each deduction at the SBI rate on the last day of the month before it (${ty.law.ftcRule}). Evidence for ${ty.law.ftcForm}.`,
+    usedFor: [ty.law.ftcForm, 'Schedule FSI'],
+    category: 'working',
+    table: [
       ['Date', 'Symbol', 'Description', 'Country', 'Income head', 'Currency', 'Tax (foreign)', 'TTBR', 'TTBR date', 'Tax (INR)'],
       ...income.taxes.map((t): Cell[] => [t.txn.date, t.txn.symbol, t.txn.description, t.country.name, t.head, t.txn.currency, fx2(t.txn.amount.neg()), rate(t.conv), rateDate(t.conv), rupees(t.conv?.inr)]),
-    ]),
+    ],
   });
-  files.push({
-    name: 'schedule_fsi_tr_summary.csv',
-    title: 'Schedule FSI / TR — per country and income head',
-    content: toCsv([
-      ['Country', 'ITR country code', 'Head', 'DTAA article', 'Income from outside India (INR)', 'Tax paid outside India (INR)', `Tax payable in India at ${r.settings.marginalRatePct}% (INR)`, 'Treaty cap (INR)', 'Tax relief available (INR)', 'Relief claimed u/s'],
-      ...income.ftc.map((g): Cell[] => [g.country.name, g.country.itrCode, g.head === 'dividend' ? 'Other sources — dividend' : 'Other sources — interest', g.article, rupees(g.incomeInr), rupees(g.foreignTaxInr), rupees(g.indianTaxInr), rupees(g.treatyCapInr), rupees(g.reliefInr), '90']),
-    ]),
+  add({
+    name: 'working_fa_A3.csv',
+    title: 'Schedule FA — lot workings',
+    description: 'Quantities, prices, rates and dates behind every A3 value, including the day each peak occurred.',
+    usedFor: ['Schedule FA', 'CA review'],
+    category: 'working',
+    table: [
+      ['Symbol', 'ISIN', 'Entity', 'Country', 'Currency', 'Acquired', 'Qty at start of CY', 'Qty at 31 Dec', 'Initial value (foreign)', 'Initial TTBR', 'Initial TTBR date', 'Initial value (INR)', 'Peak date', 'Peak qty', 'Peak price', 'Peak TTBR', 'Peak value (INR)', 'Peak method', '31 Dec price', 'Closing TTBR', 'Closing TTBR date', 'Closing value (INR)', 'Dividends credited (foreign)', 'Dividends credited (INR)', 'Sale proceeds (foreign)', 'Sale proceeds (INR)'],
+      ...fa.a3.map((row): Cell[] => [
+        row.lot.symbol, row.isin, row.entityName, row.country.name, row.lot.currency, row.acquired, qty(row.qtyStart), qty(row.qtyEnd),
+        fx2(row.initial?.foreign), rate(row.initial), rateDate(row.initial), rupees(row.initial?.inr),
+        row.peak?.date, row.peak ? qty(row.peak.qty) : '', fx2(row.peak?.price), row.peak?.rate.toString(), rupees(row.peak?.inr), row.peakQuality,
+        fx2(row.closingPrice), rate(row.closing), row.closing ? rateDate(row.closing) : '', rupees(row.closing?.inr) ?? 0,
+        fx2(row.dividends.foreign), rupees(row.dividends.inr), fx2(row.proceeds.foreign), rupees(row.proceeds.inr),
+      ]),
+    ],
   });
 
-  files.push({ name: 'itr_summary.csv', title: 'Where each figure goes in the return', content: toCsv(itrSummary(r)) });
-  files.push({ name: 'README.txt', title: 'How to read this pack', content: readme(r, files) });
+  // ---------- reference ----------
+  add({
+    name: 'exchange_rates_used.csv',
+    title: 'Exchange-rate appendix',
+    description: 'Every SBI TT buying rate applied: the date the rule asked for, the card date actually used, and where it was used.',
+    usedFor: ['All schedules', 'CA review'],
+    category: 'reference',
+    table: [
+      ['Currency', 'Date required', 'SBI card date used', 'TT buying rate (INR per unit)', 'Source', 'Used for'],
+      ...r.rates.map((u): Cell[] => [u.currency, u.requestedDate, u.rateDate, u.rate, u.manual ? 'Entered manually' : 'SBI Forex Card Rates', [...u.usedFor].join('; ')]),
+    ],
+  });
+
+  files.unshift({
+    name: `${pre}_00_README.txt`,
+    title: 'README — how to use this pack',
+    description: 'What each file is, the settings and rules used, and every warning raised.',
+    usedFor: ['Start here'],
+    category: 'reference',
+    rows: 0,
+    content: readme(r, files),
+  });
   return files;
-}
-
-export function itrSummary(r: Report): Cell[][] {
-  const { cg, income, fa, year: ty } = r;
-  const rows: Cell[][] = [['Schedule', 'Item', 'Value (INR)']];
-  rows.push(['CG', 'A5 STCG (other assets) — full value of consideration', rupees(cg.stcg.saleInr)]);
-  rows.push(['CG', 'A5 STCG — cost of acquisition', rupees(cg.stcg.costInr)]);
-  rows.push(['CG', 'A5 STCG — expenditure on transfer', rupees(cg.stcg.expensesInr)]);
-  rows.push(['CG', 'A5 STCG — gain', rupees(cg.stcg.gainInr)]);
-  rows.push(['CG', `B8 LTCG (assets not covered by B1–B7, 12.5% ${ty.law.ltcgSection}) — full value of consideration`, rupees(cg.ltcg.saleInr)]);
-  rows.push(['CG', 'B8 LTCG — cost of acquisition (no indexation)', rupees(cg.ltcg.costInr)]);
-  rows.push(['CG', 'B8 LTCG — expenditure on transfer', rupees(cg.ltcg.expensesInr)]);
-  rows.push(['CG', 'B8 LTCG — gain', rupees(cg.ltcg.gainInr)]);
-  QUARTER_LABELS.forEach((q, i) => rows.push(['CG Table F', `STCG at slab rate — ${q}`, rupees(cg.stcg.quarters[i])]));
-  QUARTER_LABELS.forEach((q, i) => rows.push(['CG Table F', `LTCG at 12.5% — ${q}`, rupees(cg.ltcg.quarters[i])]));
-  rows.push(['OS', '1a(i) Dividend income (gross, before foreign tax)', rupees(income.dividendTotalInr)]);
-  QUARTER_LABELS.forEach((q, i) => rows.push(['OS', `Dividend quarterly breakup (234C) — ${q}`, rupees(income.dividendQuarters[i])]));
-  rows.push(['OS', '1b(ix) Interest — others (broker interest)', rupees(income.interestTotalInr)]);
-  for (const g of income.ftc) {
-    rows.push(['FSI', `${g.country.name} (${g.country.itrCode}) — Other sources ${g.head}: income`, rupees(g.incomeInr)]);
-    rows.push(['FSI', `${g.country.name} — tax paid outside India`, rupees(g.foreignTaxInr)]);
-    rows.push(['FSI', `${g.country.name} — tax relief available (${g.article})`, rupees(g.reliefInr)]);
-  }
-  const relief = income.ftc.reduce((s, g) => s.add(g.reliefInr), new Decimal(0));
-  const paid = income.ftc.reduce((s, g) => s.add(g.foreignTaxInr), new Decimal(0));
-  rows.push(['TR', 'Total tax paid outside India', rupees(paid)]);
-  rows.push(['TR', 'Total tax relief claimed u/s 90', rupees(relief)]);
-  rows.push([ty.law.ftcForm, 'Foreign tax credit claimed (file before the return)', rupees(relief)]);
-  rows.push(['FA', `Table A2 rows (calendar year ${ty.cyStart.slice(0, 4)})`, fa.a2.length]);
-  rows.push(['FA', 'Table A3 rows (one per lot)', fa.a3.length]);
-  return rows;
 }
 
 function readme(r: Report, files: PackFile[]): string {
   const ty = r.year;
   const lines = [
     `IBKR → India tax pack — ${ty.label}`,
-    `Account ${r.account.accountId}. Generated ${new Date().toISOString().slice(0, 10)} in your browser; nothing was uploaded.`,
+    `Account ${r.account.accountId}. Generated ${new Date().toISOString().slice(0, 10)} in the browser; no data left the device.`,
     '',
-    `Law: ${ty.law.act}. Currency conversion at SBI TT buying rates (${ty.law.conversionRule}; foreign tax credit ${ty.law.ftcRule}).`,
+    `Law: ${ty.law.act}. Conversions at SBI TT buying rates (${ty.law.conversionRule}; foreign tax credit ${ty.law.ftcRule}).`,
     `Schedule FA covers calendar year ${ty.cyStart} to ${ty.cyEnd}. Schedules CG, OS, FSI and TR cover ${ty.fyStart} to ${ty.fyEnd}.`,
     '',
+    'Order of filing:',
+    `  1. ${ty.law.ftcForm} (foreign tax credit) — file before the return.`,
+    '  2. ITR-2: Schedule CG, OS, FSI, TR, FA, then answer "Yes" to the foreign-assets question in Part B-TTI.',
+    '',
     'Settings used:',
+    `  Residential status: ${r.settings.residency}`,
     `  Capital gains conversion: ${r.settings.cgFxMethod === 'split' ? 'sale value and cost converted separately (month-end before sale / before purchase)' : 'foreign-currency gain converted at the month-end rate before the sale'}`,
-    `  Schedule FA income and proceeds: ${r.settings.faIncomeRate === 'txn' ? 'TTBR on the transaction date' : 'TTBR on 31 December'}`,
-    `  Broker interest: ${r.settings.interestRate === 'fyEnd' ? `TTBR on ${ty.fyEnd}` : 'TTBR at month-end before each credit'}`,
-    `  Marginal tax rate for the FTC limit: ${r.settings.marginalRatePct}%`,
+    `  Schedule FA income and proceeds: ${r.settings.faIncomeRate === 'txn' ? 'SBI rate on the transaction date' : 'SBI rate on 31 December'}`,
+    `  Broker interest: ${r.settings.interestRate === 'fyEnd' ? `SBI rate on ${ty.fyEnd}` : 'SBI rate at month-end before each credit'}`,
+    `  Marginal tax rate (for the foreign tax credit limit): ${r.settings.marginalRatePct}%`,
     '',
     'Files:',
-    ...files.map((f) => `  ${f.name} — ${f.title}`),
-    '  README.txt — this file',
+    '  00_README.txt — this file',
+    ...files.map((f) => `  ${f.name.replace(/^[^_]+_/, '')} — ${f.title}. ${f.description}`),
     '',
     'Method notes:',
-    '  Schedule FA A3 has one row per purchase lot. Peak value = highest of (shares held × that day\'s price × that day\'s TTBR) over the calendar year.',
-    '  Dividends are attributed only to lots held on the day before the ex-date. Closing balance uses the 31 December price and TTBR.',
+    "  Schedule FA A3 has one row per purchase lot. Peak value = highest of (shares held x that day's price x that day's SBI rate) during the calendar year.",
+    '  Dividends are attributed only to lots held on the day before the ex-date. Closing balance uses the 31 December price and rate.',
     '  US shares are not listed in India: long-term only if held more than 24 months, taxed at 12.5% without indexation; short-term at slab rates.',
-    '  Dividends are reported gross (before US withholding); the withholding is claimed back through Schedules FSI/TR and ' + ty.law.ftcForm + '.',
-    '  Portal upload CSVs follow the layout reported to work on the e-filing portal; download the portal template and compare before uploading.',
-    '  Addresses and ZIP codes of companies are not in IBKR data; fill them in the tool before downloading or in the CSV.',
+    `  Dividends are reported gross (before US withholding); the withholding is claimed through Schedules FSI/TR and ${ty.law.ftcForm}.`,
+    '  Table F values are net gains per period with losses absorbed by later gains, never negative. Re-check against Schedule BFLA.',
+    '  Schedule FA has no official bulk upload; enter rows on the portal (or the offline utility) using the A2/A3 files, which follow the portal column order.',
+    '  Company addresses are not in IBKR data; any you entered in the tool are included in the A3 file.',
     '',
     'Warnings raised:',
     ...(r.warnings.length ? r.warnings.map((w) => `  [${w.level.toUpperCase()}] ${w.area}: ${w.message}`) : ['  none']),
@@ -238,4 +288,8 @@ export async function zipPack(files: PackFile[]): Promise<Blob> {
   const zip = new JSZip();
   for (const f of files) zip.file(f.name, f.content);
   return zip.generateAsync({ type: 'blob' });
+}
+
+export function byteSize(s: string): number {
+  return new TextEncoder().encode(s).length;
 }

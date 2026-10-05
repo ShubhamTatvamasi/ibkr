@@ -2,18 +2,7 @@
 import Base from '../layouts/Base.astro';
 import App from '../components/App.svelte';
 ---
-<Base title="IBKR India Tax Reports">
-  <section class="hero">
-    <h1>Indian tax reports from your Interactive Brokers account</h1>
-    <p>
-      Schedule FA (A2, A3), capital gains, dividends and interest, and the foreign tax credit (FSI, TR, Form 67 / Form 44) —
-      built from your IBKR Flex Query, with SBI TT buying rates applied to every amount.
-    </p>
-    <div class="badges">
-      <span class="badge">Runs entirely in your browser</span>
-      <span class="badge">Nothing uploaded or stored</span>
-      <span class="badge">Open source</span>
-    </div>
-  </section>
+<Base title="IBKR India Tax" bare>
   <App client:only="svelte" />
+  <noscript><p style="padding:24px">This tool runs entirely in your browser and needs JavaScript.</p></noscript>
 </Base>

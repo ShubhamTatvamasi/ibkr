@@ -10,6 +10,10 @@ export interface Settings {
   interestRate: 'fyEnd' | 'monthly';
   /** Your marginal rate incl. surcharge and cess, used for the FTC "tax payable in India" limit. */
   marginalRatePct: number;
+  /** Residential status for the year: Schedule FA applies only to residents who are ordinarily resident. */
+  residency: 'ROR' | 'RNOR' | 'NR';
+  /** Foreign taxpayer identification number for Schedule FSI/TR and Form 67 (passport number if none was allotted). */
+  tin: string;
 }
 
 export const DEFAULT_SETTINGS: Settings = {
@@ -17,6 +21,8 @@ export const DEFAULT_SETTINGS: Settings = {
   faIncomeRate: 'txn',
   interestRate: 'fyEnd',
   marginalRatePct: 31.2,
+  residency: 'ROR',
+  tin: '',
 };
 
 export type Level = 'error' | 'warn' | 'info';
@@ -26,8 +32,19 @@ export interface Warning {
   message: string;
 }
 
+export interface RateUse {
+  currency: string;
+  requestedDate: IsoDate;
+  rateDate: IsoDate;
+  rate: string;
+  manual: boolean;
+  usedFor: Set<string>;
+}
+
 export class Collector {
   readonly warnings: Warning[] = [];
+  /** Every exchange rate applied, for the CA's audit appendix. */
+  readonly rates = new Map<string, RateUse>();
   readonly missingRates = new Map<string, { currency: string; date: IsoDate }>();
   private readonly seen = new Set<string>();
 
@@ -42,6 +59,12 @@ export class Collector {
   convert(area: string, fn: () => Conversion): Conversion | undefined {
     try {
       const c = fn();
+      if (c.currency !== 'INR') {
+        const key = `${c.currency}|${c.requestedDate}`;
+        const use = this.rates.get(key) ?? { currency: c.currency, requestedDate: c.requestedDate, rateDate: c.rateDate, rate: c.rate.toString(), manual: c.manual, usedFor: new Set<string>() };
+        use.usedFor.add(area);
+        this.rates.set(key, use);
+      }
       if (c.staleDays > 7) {
         this.add('warn', area, `Used the ${c.currency} SBI rate of ${c.rateDate} for ${c.requestedDate} (${c.staleDays} days earlier — no card published in between).`);
       }

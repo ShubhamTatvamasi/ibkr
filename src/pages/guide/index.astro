@@ -20,10 +20,8 @@ const sections = [
 ---
 <Base title="IBKR Flex Query Setup" description="How to create the IBKR Activity Flex Query this tool needs, step by step.">
   <article class="prose">
-    <section class="hero">
-      <h1>Create your IBKR Flex Query</h1>
-      <p>A Flex Query is a report template you build once in IBKR and run for any date range. It is the only IBKR export with lot-level detail: each purchase's date and cost, and which lot each sale closed. That detail is exactly what Schedule FA and capital gains need. Setting it up takes about ten minutes, once.</p>
-    </section>
+    <h1>Create your IBKR Flex Query</h1>
+    <p class="lead">A Flex Query is a report template you build once in IBKR and run for any date range. It is the only IBKR export with lot-level detail: each purchase's date and cost, and which lot each sale closed. That detail is exactly what Schedule FA and capital gains need. Setting it up takes about ten minutes, once.</p>
 
     <h2>Quick way: Configure with AI</h2>
     <p>IBKR can now build the query from a description. Go to <b>Performance &amp; Reports</b> → <b>Flex Queries</b> → <b>Configure with AI</b>, paste the first prompt and click <b>Generate Flex Query</b>, then send the second one to add the remaining sections. The box takes up to 200 characters, so the request is split in two.</p>
@@ -33,7 +31,7 @@ const sections = [
         <p>{p}</p>
       </div>
     ))}
-    <p class="muted">AI output can vary. Before saving, check the generated query against the section table below: <b>Trades</b> must include Closed Lots, <b>Open Positions</b> must be at Lot level, and the format must be XML. If anything is missing, the tool also lists the missing sections after you upload. Then run the query twice, as in step 4.</p>
+    <p class="faint">AI output can vary. Before saving, check the generated query against the section table below: <b>Trades</b> must include Closed Lots, <b>Open Positions</b> must be at Lot level, and the format must be XML. If anything is missing, the tool also lists the missing sections after you upload. Then run the query twice, as in step 4.</p>
 
     <h2>1 · Or create the template by hand</h2>
     <ol>
@@ -43,18 +41,18 @@ const sections = [
     </ol>
 
     <h2>2 · Sections</h2>
-    <div class="scroll">
-      <table>
+    <div class="table-wrap">
+      <table class="data">
         <thead><tr><th>Section</th><th>Options</th><th>Why it's needed</th></tr></thead>
         <tbody>
           {sections.map((s) => <tr><td><b>{s.name}</b></td><td>{s.options}</td><td>{s.why}</td></tr>)}
         </tbody>
       </table>
     </div>
-    <p class="muted">Only Trades, Open Positions and Cash Transactions are strictly required. The others make the numbers exact rather than approximate, and the tool tells you which ones are missing.</p>
+    <p class="faint">Only Trades, Open Positions and Cash Transactions are strictly required. The others make the numbers exact rather than approximate, and the tool tells you which ones are missing.</p>
 
     <h2>3 · Delivery and general configuration</h2>
-    <table>
+    <div class="table-wrap"><table class="data">
       <tbody>
         <tr><td>Format</td><td><b>XML</b></td></tr>
         <tr><td>Period</td><td>Any — you choose dates when you run it</td></tr>
@@ -63,17 +61,17 @@ const sections = [
         <tr><td>Include canceled trades</td><td>No</td></tr>
         <tr><td>Everything else</td><td>Leave at default</td></tr>
       </tbody>
-    </table>
+    </table></div>
 
     <h2>4 · Run it twice</h2>
     <p>Schedule FA runs on the <b>calendar year</b>, while capital gains, dividends and the foreign tax credit run on the <b>financial year</b>. IBKR allows at most 365 days per run, so run the saved query twice with custom dates:</p>
-    <table>
+    <div class="table-wrap"><table class="data">
       <thead><tr><th>Return</th><th>Run 1 — Schedule FA</th><th>Run 2 — CG, OS, FSI/TR</th></tr></thead>
       <tbody>
         <tr><td>AY 2026-27 (FY 2025-26)</td><td>1 Jan 2025 – 31 Dec 2025</td><td>1 Apr 2025 – 31 Mar 2026</td></tr>
         <tr><td>Tax year 2026-27</td><td>1 Jan 2026 – 31 Dec 2026</td><td>1 Apr 2026 – 31 Mar 2027</td></tr>
       </tbody>
-    </table>
+    </table></div>
     <p>Click the run (▶) icon on the query, choose <b>Custom Date Range</b>, set the dates and <b>Run</b>, then download the XML. Drop both files into the <a href={base}>tool</a> together. Overlapping data is merged without double counting.</p>
 
     <h2>Notes</h2>
@@ -81,9 +79,9 @@ const sections = [
       <li>IBKR keeps Flex data for the four previous calendar years plus the current one. Lots bought earlier still appear in Open Positions with their original open date.</li>
       <li>SBI rates in this tool start in January 2020. For older purchases, the tool asks you to enter the rate from SBI's historical rate card.</li>
       <li>Options, futures and forex trades are listed as warnings but not computed.</li>
-      <li>Want to see the output first? Use <b>Try sample data</b> on the <a href={base}>tool page</a>. It is a fictional account.</li>
+      <li>Want to see the output first? Use <b>See it with sample data</b> on the <a href={base}>tool page</a>. It is a fictional account.</li>
     </ul>
-    <p class="note">Your XML file contains your account number and full trading history. This site has no server: the file is read by JavaScript in your browser, and the page's security policy blocks it from contacting any other site.</p>
+    <p class="callout accent" style="display:block">Your XML file contains your account number and full trading history. This site has no server: the file is read by JavaScript in your browser, and the page's security policy blocks it from contacting any other site.</p>
   </article>
 </Base>
 

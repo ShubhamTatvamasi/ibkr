@@ -29,7 +29,10 @@ export interface CgTotals {
   costInr: Decimal;
   expensesInr: Decimal;
   gainInr: Decimal;
+  /** Net gain arising in each s.234C period (can be negative). */
   quarters: Decimal[];
+  /** Table F values: losses absorbed by later gains first, never negative, summing to max(0, total). */
+  tableF: Decimal[];
 }
 
 export interface CgResult {
@@ -44,7 +47,21 @@ const zeroTotals = (): CgTotals => ({
   expensesInr: new Decimal(0),
   gainInr: new Decimal(0),
   quarters: [0, 0, 0, 0, 0].map(() => new Decimal(0)),
+  tableF: [0, 0, 0, 0, 0].map(() => new Decimal(0)),
 });
+
+/** Accrual by period of a running net gain: each period gets the increase in max(0, cumulative). */
+export function nonNegativeAccrual(quarters: Decimal[]): Decimal[] {
+  let cum = new Decimal(0);
+  let reported = new Decimal(0);
+  return quarters.map((q) => {
+    cum = cum.add(q);
+    const target = Decimal.max(cum, 0);
+    const v = Decimal.max(target.sub(reported), 0);
+    reported = reported.add(v);
+    return v;
+  });
+}
 
 export function capitalGains(data: FlexData, account: Account, ty: TaxYear, settings: Settings, fx: Fx, log: Collector): CgResult {
   const area = 'Capital gains';
@@ -108,6 +125,11 @@ export function capitalGains(data: FlexData, account: Account, ty: TaxYear, sett
   }
   if (result.rows.some((r) => r.pnlMismatch)) {
     log.add('info', area, 'Some sales differ from IBKR realized P/L by more than $0.05 (usually commission rounding). Review rows marked ≠.');
+  }
+  result.stcg.tableF = nonNegativeAccrual(result.stcg.quarters);
+  result.ltcg.tableF = nonNegativeAccrual(result.ltcg.quarters);
+  if (result.stcg.gainInr.lt(0) || result.ltcg.gainInr.lt(0)) {
+    log.add('info', area, 'There is a net capital loss in one category. Table F shows gains after setting off losses within the same category; cross-category set-off (short-term loss against long-term gain) is done in Schedule CYLA/BFLA — check the final Table F against BFLA.');
   }
   result.rows.sort((a, b) => a.lot.closeDate.localeCompare(b.lot.closeDate) || a.lot.symbol.localeCompare(b.lot.symbol));
   return result;

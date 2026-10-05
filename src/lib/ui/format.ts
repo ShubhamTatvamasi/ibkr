@@ -55,3 +55,17 @@ export function download(name: string, blob: Blob) {
 }
 
 export const BASE = import.meta.env.BASE_URL.endsWith('/') ? import.meta.env.BASE_URL : `${import.meta.env.BASE_URL}/`;
+
+/** Whole-rupee value as the portal wants it typed (no symbol or separators). */
+export function raw(d: Decimal | number | undefined | null): string {
+  if (d === undefined || d === null) return '0';
+  const n = typeof d === 'number' ? d : d.toDecimalPlaces(0, 4 /* ROUND_HALF_UP */).toNumber();
+  return String(Math.round(n));
+}
+
+/** DD/MM/YYYY, the portal's date entry format. */
+export function portalDate(d: string | undefined): string {
+  if (!d) return '';
+  const [y, m, day] = d.split('-');
+  return `${day}/${m}/${y}`;
+}

@@ -68,6 +68,7 @@ function cashKind(type: string, description: string): CashKind {
   if (t.includes('dividend')) return 'dividend'; // "Dividends", "Payment In Lieu Of Dividends"
   if (t.includes('interest') && t.includes('received')) return 'interest';
   if (/credit int/i.test(description) && t.includes('interest')) return 'interest';
+  if (t.includes('deposit')) return 'transfer'; // "Deposits/Withdrawals"
   return 'other';
 }
 

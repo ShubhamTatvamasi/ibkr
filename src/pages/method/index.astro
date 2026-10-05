@@ -3,16 +3,14 @@ import Base from '../../layouts/Base.astro';
 ---
 <Base title="Calculation Method" description="Rules and conventions used to compute Schedule FA, CG, OS and foreign tax credit figures.">
   <article class="prose">
-    <section class="hero">
-      <h1>How the numbers are computed</h1>
-      <p>Every figure carries the exchange rate and the date it was taken from. Where the law leaves room for interpretation, the choice is exposed as a setting rather than made silently. Review these with your CA.</p>
-    </section>
+    <h1>How the numbers are computed</h1>
+    <p class="lead">Every figure carries the exchange rate and the date it was taken from. Where the law leaves room for interpretation, the choice is exposed as a setting rather than made silently. Review these with your CA.</p>
 
     <h2>Which law</h2>
     <p>AY 2026-27 (FY 2025-26) falls under the Income-tax Act 1961: Rule 115 for currency conversion, Rule 128 and Form 67 for the foreign tax credit, and section 112 for long-term gains. From tax year 2026-27 the Income-tax Act 2025 and the Income-tax Rules 2026 apply. The same substance carries over under new numbers: Rule 206 (conversion), Rule 76 and <b>Form 44</b> (foreign tax credit) and section 197. Form 44 must be verified by an accountant when foreign tax paid is ₹1 lakh or more.</p>
 
     <h2>Exchange rates</h2>
-    <table>
+    <div class="table-wrap"><table class="data">
       <thead><tr><th>Figure</th><th>SBI TT buying rate on</th></tr></thead>
       <tbody>
         <tr><td>Capital gains</td><td>last day of the month before the month of sale (cost: the month before purchase, if converting separately)</td></tr>
@@ -24,7 +22,7 @@ import Base from '../../layouts/Base.astro';
         <tr><td>Schedule FA closing value</td><td>31 December</td></tr>
         <tr><td>Schedule FA dividends and proceeds</td><td>transaction date (setting: or 31 December)</td></tr>
       </tbody>
-    </table>
+    </table></div>
     <p>If SBI published no rate on a date (weekend, holiday or a gap in the archive), the latest earlier rate is used, and gaps longer than seven days are flagged. When SBI revised a rate during the day, the first rate card of the day is used. Rates are taken from SBI's daily Forex Card Rates. This site records each day's card and keeps the archive from January 2020. JPY is quoted by SBI per 100 yen and converted per unit.</p>
 
     <h2>Schedule FA</h2>
