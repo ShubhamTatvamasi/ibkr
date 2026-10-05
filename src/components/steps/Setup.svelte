@@ -12,8 +12,8 @@
   let input: HTMLInputElement;
 
   const PROMPTS = [
-    'Activity XML: Trades with Executions and Closed Lots, Open Positions at Lot level, Cash Transactions detail, Prior Period Positions, Statement of Funds, Account Information. All fields.',
-    'Also add Financial Instrument Information, Cash Report, Change in Dividend Accruals and Corporate Actions, all fields. Date format yyyyMMdd, exclude canceled trades.',
+    'Activity XML, all fields incl. Open Date Time and Conid: Trades (Executions + Closed Lots), Open Positions (Lot), Cash Transactions (Detail), Prior Period Positions, Statement of Funds',
+    'Also add Account Information, Financial Instrument Information, Cash Report, Change in Dividend Accruals and Corporate Actions, with all fields selected. Date format yyyyMMdd.',
   ];
 
   const RATES = [
@@ -136,13 +136,20 @@
     </div>
     <details class="ai">
       <summary><Icon name="sparkle" size={18} />Quickest: use IBKR's <b>Configure with AI</b> to build the query</summary>
-      <p class="muted">Performance &amp; Reports → Flex Queries → Configure with AI. Paste the first prompt, then send the second. Before saving, check that Trades has Closed Lots and Open Positions is at Lot level.</p>
+      <p class="muted">Performance &amp; Reports → Flex Queries → Configure with AI. Paste the first prompt, then send the second.</p>
       {#each PROMPTS as p, i}
         <div class="prompt">
           <div class="prompt-head"><b>Prompt {i + 1}</b><CopyButton value={p} label={`prompt ${i + 1}`} /></div>
           <p>{p}</p>
         </div>
       {/each}
+      <div class="callout warn">
+        <Icon name="warn" />
+        <div>
+          <b>Then click “Edit Manually” and press “Select All” in every section.</b>
+          <p>The AI picks a short default list of fields that leaves out <b>Open Date Time</b> — the purchase date of each lot, which Schedule FA and capital gains depend on. Select All fixes it. Then Save.</p>
+        </div>
+      </div>
     </details>
   </section>
 
@@ -225,9 +232,15 @@
       <h3 class="sub-h">Sections found</h3>
       <div class="checks">
         {#each [...required, ...optional] as c}
-          <div class="check" class:missing={!c.present} class:req={c.required}>
-            <span class="ck-icon"><Icon name={c.present ? 'check-circle' : c.required ? 'error' : 'step-todo'} size={18} /></span>
-            <div><b>{c.label}</b><span class="faint">{c.purpose}{!c.present && !c.required ? ' — optional, improves accuracy' : ''}</span></div>
+          {@const bad = c.missingCritical.length > 0}
+          <div class="check" class:missing={!c.present} class:req={c.required} class:bad>
+            <span class="ck-icon" class:soft={c.present && !bad && c.missingRecommended.length > 0}><Icon name={bad ? 'error' : c.present ? (c.missingRecommended.length ? 'warn' : 'check-circle') : c.required ? 'error' : 'step-todo'} size={18} /></span>
+            <div>
+              <b>{c.label}</b>
+              <span class="faint">{c.purpose}{!c.present && !c.required ? ' — optional, improves accuracy' : ''}</span>
+              {#if bad}<span class="miss crit">Missing: {c.missingCritical.join(', ')}</span>{/if}
+              {#if c.missingRecommended.length}<span class="miss">Also not selected: {c.missingRecommended.join(', ')}</span>{/if}
+            </div>
           </div>
         {/each}
       </div>
@@ -347,7 +360,11 @@
   .ck-icon { color: var(--success); }
   .check.missing .ck-icon { color: var(--text-3); }
   .check.missing.req { background: var(--danger-soft); }
-  .check.missing.req .ck-icon { color: var(--danger); }
+  .check.missing.req .ck-icon, .check.bad .ck-icon { color: var(--danger); }
+  .check.bad { background: var(--danger-soft); }
+  .ck-icon.soft { color: var(--warn); }
+  .miss { font-size: var(--fs-caption); color: var(--text-2); margin-top: 2px; }
+  .miss.crit { color: var(--danger-text); font-weight: 600; }
 
   .about { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 20px; }
   fieldset { border: 0; margin: 0; padding: 0; min-width: 0; }

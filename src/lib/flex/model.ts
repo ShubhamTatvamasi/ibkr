@@ -145,4 +145,8 @@ export interface FlexData {
   /** Trades in asset classes we don't compute (options, futures, forex…), for warnings. */
   unsupportedTrades: { symbol: string; assetCategory: string; date: IsoDate }[];
   sections: Set<string>;
+  /** Stock/ETF sale executions seen, to detect a Trades section without Closed Lots. */
+  saleExecutions: number;
+  /** Attribute names seen per section, to tell the user which Flex fields are missing. */
+  fields: Map<string, Set<string>>;
 }

@@ -87,6 +87,8 @@ export function emptyFlexData(): FlexData {
     dividendAccruals: [],
     unsupportedTrades: [],
     sections: new Set(),
+    saleExecutions: 0,
+    fields: new Map(),
   };
 }
 
@@ -114,6 +116,7 @@ export function parseFlexXml(xml: string, fileName: string, into: FlexData = emp
   for (const st of statements.filter((n) => n.tag === 'FlexStatement')) {
     parseStatement(st, fileName, into);
   }
+  resolveSymbolIds(into);
   return into;
 }
 
@@ -130,6 +133,14 @@ function parseStatement(st: Node, fileName: string, d: FlexData) {
 
   for (const section of st.children) {
     if (section.children.length > 0 || section.tag === 'AccountInformation') d.sections.add(section.tag);
+    const seen = d.fields.get(section.tag) ?? new Set<string>();
+    for (const k of Object.keys(section.attrs)) if (section.tag === 'AccountInformation') seen.add(k);
+    for (const row of section.children) {
+      for (const k of Object.keys(row.attrs)) seen.add(k);
+      // Queries built without the Conid field: key instruments by symbol until resolved.
+      if (!row.attrs.conid && row.attrs.symbol) row.attrs.conid = `${SYMBOL_KEY}${row.attrs.symbol}|${row.attrs.currency ?? ''}`;
+    }
+    d.fields.set(section.tag, seen);
     switch (section.tag) {
       case 'AccountInformation':
         addAccount(d, section.attrs);
@@ -142,7 +153,8 @@ function parseStatement(st: Node, fileName: string, d: FlexData) {
         break;
       case 'OpenPositions':
         for (const { attrs: a } of section.children) {
-          if (a.levelOfDetail !== 'LOT') continue;
+          // Lot rows carry an open date; without the Level of Detail field that is the only tell.
+          if (a.levelOfDetail ? a.levelOfDetail !== 'LOT' : !a.openDateTime) continue;
           if (!EQUITY.has(a.assetCategory)) continue;
           const reportDate = toIsoDate(a.reportDate) ?? toDate;
           const openDate = toIsoDate(a.openDateTime);
@@ -260,6 +272,33 @@ function parseStatement(st: Node, fileName: string, d: FlexData) {
 
 const seenKeys = new WeakMap<FlexData, Set<string>>();
 
+/** Prefix of a placeholder instrument id used when a section has no Conid field. */
+export const SYMBOL_KEY = 'sym:';
+
+/** Replace symbol placeholders with real conids wherever another section supplied the mapping. */
+function resolveSymbolIds(d: FlexData) {
+  const real = new Map<string, string>();
+  for (const i of d.instruments.values()) {
+    if (!i.conid.startsWith(SYMBOL_KEY) && i.symbol) real.set(`${SYMBOL_KEY}${i.symbol}|${i.currency ?? ''}`, i.conid);
+  }
+  if (!real.size) return;
+  const fix = (id: string | undefined) => (id && real.get(id)) || id;
+  for (const r of d.openLots) r.conid = fix(r.conid)!;
+  for (const r of d.closedLots) r.conid = fix(r.conid)!;
+  for (const r of d.prices) r.conid = fix(r.conid)!;
+  for (const r of d.cash) r.conid = fix(r.conid);
+  for (const r of d.corporateActions) r.conid = fix(r.conid)!;
+  for (const r of d.dividendAccruals) r.conid = fix(r.conid)!;
+  for (const [id, inst] of [...d.instruments]) {
+    const to = real.get(id);
+    if (to) {
+      d.instruments.delete(id);
+      const target = d.instruments.get(to);
+      if (target) d.instruments.set(to, { ...inst, ...target, description: target.description || inst.description });
+    }
+  }
+}
+
 function addAccount(d: FlexData, a: Attrs) {
   if (!a.accountId || d.accounts.some((x) => x.accountId === a.accountId)) return;
   const acct: Account = {
@@ -296,9 +335,10 @@ function parseTrades(rows: Node[], accountId: string, d: FlexData, once: (k: str
     if (level === 'EXECUTION' || (tag === 'Trade' && level !== 'CLOSED_LOT')) {
       parent = a;
       addInstrument(d, a);
+      if (EQUITY.has(a.assetCategory) && a.buySell?.startsWith('SELL') && once(`se|${a.tradeID ?? `${a.conid}|${a.dateTime}|${a.quantity}`}`)) d.saleExecutions++;
       if (!EQUITY.has(a.assetCategory) && a.assetCategory !== 'CASH') {
         const date = toIsoDate(a.tradeDate) ?? toIsoDate(a.dateTime);
-        if (date && once(`ut|${a.tradeID ?? a.transactionID}`)) {
+        if (date && once(`ut|${a.tradeID ?? a.transactionID ?? `${a.conid}|${a.dateTime}|${a.quantity}`}`)) {
           d.unsupportedTrades.push({ symbol: a.symbol, assetCategory: a.assetCategory, date });
         }
       }

@@ -84,12 +84,19 @@ export function buildReport(data: FlexData, account: Account, ayStart: number, s
   if (!covers(cov, ty.fyStart, ty.fyEnd)) {
     log.add('warn', 'Coverage', `Capital gains and income need ${ty.fyStart} – ${ty.fyEnd}; your files don't fully cover it. Upload the financial-year export.`);
   }
-  for (const [section, why] of [
-    ['Trades', 'capital gains'],
-    ['CashTransactions', 'dividends, interest and withholding tax'],
-    ['OpenPositions', 'Schedule FA holdings'],
-  ] as const) {
-    if (!data.sections.has(section)) log.add('error', 'Flex Query', `Section "${section}" not found — needed for ${why}.`);
+  for (const c of sectionChecklist(data)) {
+    if (c.required && !c.present) {
+      log.add('error', 'Flex Query', `Section “${c.label}” not found — needed for ${c.purpose.toLowerCase()}.`);
+    }
+    if (c.missingCritical.length) {
+      log.add('error', 'Flex Query', `${c.label} is missing the field${c.missingCritical.length > 1 ? 's' : ''} ${c.missingCritical.join(', ')}. In IBKR, edit the query, open ${c.label.replace(/ \(.*\)/, '')} and click Select All, then export again.`);
+    }
+    if (c.missingRecommended.length) {
+      log.add('info', 'Flex Query', `${c.label} has no ${c.missingRecommended.join(', ')}. Results still work; selecting all fields makes matching and names more reliable.`);
+    }
+  }
+  if (data.saleExecutions > 0 && !data.closedLots.length && data.fields.get('Trades')?.has('openDateTime')) {
+    log.add('error', 'Flex Query', 'Sales were found but no closed-lot rows. In IBKR, edit the query, open Trades and tick “Closed Lots” under Options.');
   }
   if (!data.sections.has('SecuritiesInfo')) {
     log.add('info', 'Flex Query', 'Add "Financial Instrument Information" for full company names and ISIN-based country detection.');
@@ -150,21 +157,65 @@ export interface SectionCheck {
   required: boolean;
   present: boolean;
   purpose: string;
+  /** IBKR field labels missing from the export that the calculation needs. */
+  missingCritical: string[];
+  /** Missing fields that improve accuracy (fallbacks exist). */
+  missingRecommended: string[];
 }
 
-/** Which Flex Query sections were found across the uploaded files, and what each one unlocks. */
+/** IBKR's on-screen field labels for the XML attributes we rely on. */
+const FIELD_LABEL: Record<string, string> = {
+  openDateTime: 'Open Date Time',
+  conid: 'Conid',
+  isin: 'ISIN',
+  levelOfDetail: 'Level of Detail',
+  reportDate: 'Report Date',
+  description: 'Description',
+  issuerCountryCode: 'Issuer Country Code',
+  tradeID: 'Trade ID',
+  transactionID: 'Transaction ID',
+  fifoPnlRealized: 'Realized P/L',
+  cost: 'Cost Basis',
+  costBasisMoney: 'Cost Basis Money',
+  markPrice: 'Mark Price',
+  dateOpened: 'Date Opened',
+  price: 'Price',
+  date: 'Date',
+  ibCommission: 'IB Commission',
+  proceeds: 'Proceeds',
+  quantity: 'Quantity',
+  position: 'Quantity',
+  tradeDate: 'Trade Date',
+  type: 'Type',
+  amount: 'Amount',
+  dateTime: 'Date/Time',
+  balance: 'Balance',
+  symbol: 'Symbol',
+  currency: 'Currency',
+  subCategory: 'Sub Category',
+};
+
+const SPEC: { section: string; label: string; required: boolean; purpose: string; critical: string[][]; recommended: string[] }[] = [
+  { section: 'Trades', label: 'Trades (with Closed Lots)', required: true, purpose: 'Capital gains, lot history', critical: [['openDateTime'], ['cost'], ['proceeds'], ['quantity'], ['tradeDate', 'dateTime'], ['currency']], recommended: ['conid', 'ibCommission', 'fifoPnlRealized', 'levelOfDetail', 'tradeID', 'isin', 'description'] },
+  { section: 'OpenPositions', label: 'Open Positions (Lot level)', required: true, purpose: 'Schedule FA holdings', critical: [['openDateTime'], ['position', 'quantity'], ['markPrice'], ['costBasisMoney'], ['currency']], recommended: ['conid', 'reportDate', 'levelOfDetail', 'description', 'isin'] },
+  { section: 'CashTransactions', label: 'Cash Transactions', required: true, purpose: 'Dividends, interest, US tax withheld', critical: [['type'], ['amount'], ['dateTime'], ['currency'], ['symbol']], recommended: ['conid', 'description', 'transactionID', 'issuerCountryCode', 'isin'] },
+  { section: 'AccountInformation', label: 'Account Information', required: false, purpose: 'Account number and opening date', critical: [['dateOpened']], recommended: [] },
+  { section: 'PriorPeriodPositions', label: 'Prior Period Positions', required: false, purpose: 'Exact daily peak values', critical: [['date'], ['price']], recommended: ['conid'] },
+  { section: 'StmtFunds', label: 'Statement of Funds', required: false, purpose: 'Daily cash balance (A2 peak)', critical: [['balance'], ['date']], recommended: [] },
+  { section: 'SecuritiesInfo', label: 'Financial Instrument Information', required: false, purpose: 'Company names, ISIN, country', critical: [], recommended: ['description', 'isin', 'issuerCountryCode', 'subCategory'] },
+  { section: 'CashReport', label: 'Cash Report', required: false, purpose: 'Opening and closing cash', critical: [], recommended: [] },
+  { section: 'ChangeInDividendAccruals', label: 'Change in Dividend Accruals', required: false, purpose: 'Ex-dates for dividend matching', critical: [], recommended: [] },
+  { section: 'CorporateActions', label: 'Corporate Actions', required: false, purpose: 'Splits and mergers', critical: [], recommended: [] },
+];
+
+/** Which Flex Query sections and fields were found across the uploaded files, and what each one unlocks. */
 export function sectionChecklist(data: FlexData): SectionCheck[] {
-  const spec: [string, string, boolean, string][] = [
-    ['Trades', 'Trades (with Closed Lots)', true, 'Capital gains, lot history'],
-    ['OpenPositions', 'Open Positions (Lot level)', true, 'Schedule FA holdings'],
-    ['CashTransactions', 'Cash Transactions', true, 'Dividends, interest, US tax withheld'],
-    ['AccountInformation', 'Account Information', false, 'Account number and opening date'],
-    ['PriorPeriodPositions', 'Prior Period Positions', false, 'Exact daily peak values'],
-    ['StmtFunds', 'Statement of Funds', false, 'Daily cash balance (A2 peak)'],
-    ['SecuritiesInfo', 'Financial Instrument Information', false, 'Company names, ISIN, country'],
-    ['CashReport', 'Cash Report', false, 'Opening and closing cash'],
-    ['ChangeInDividendAccruals', 'Change in Dividend Accruals', false, 'Ex-dates for dividend matching'],
-    ['CorporateActions', 'Corporate Actions', false, 'Splits and mergers'],
-  ];
-  return spec.map(([section, label, required, purpose]) => ({ section, label, required, present: data.sections.has(section), purpose }));
+  return SPEC.map((s) => {
+    const present = data.sections.has(s.section);
+    const fields = data.fields.get(s.section) ?? new Set<string>();
+    const has = (k: string) => fields.has(k);
+    const missingCritical = present ? s.critical.filter((alts) => !alts.some(has)).map((alts) => FIELD_LABEL[alts[0]] ?? alts[0]) : [];
+    const missingRecommended = present ? s.recommended.filter((k) => !has(k)).map((k) => FIELD_LABEL[k] ?? k) : [];
+    return { section: s.section, label: s.label, required: s.required, present, purpose: s.purpose, missingCritical, missingRecommended };
+  });
 }

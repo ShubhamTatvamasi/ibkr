@@ -4,8 +4,8 @@ import Icon from '../../components/Icon.astro';
 
 const base = import.meta.env.BASE_URL.replace(/\/?$/, '/');
 const prompts = [
-  'Activity XML: Trades with Executions and Closed Lots, Open Positions at Lot level, Cash Transactions detail, Prior Period Positions, Statement of Funds, Account Information. All fields.',
-  'Also add Financial Instrument Information, Cash Report, Change in Dividend Accruals and Corporate Actions, all fields. Date format yyyyMMdd, exclude canceled trades.',
+  'Activity XML, all fields incl. Open Date Time and Conid: Trades (Executions + Closed Lots), Open Positions (Lot), Cash Transactions (Detail), Prior Period Positions, Statement of Funds',
+  'Also add Account Information, Financial Instrument Information, Cash Report, Change in Dividend Accruals and Corporate Actions, with all fields selected. Date format yyyyMMdd.',
 ];
 const sections = [
   { name: 'Trades', options: 'Executions + Closed Lots', why: 'Every sale with the exact lot it closed: acquisition date and cost.', req: true },
@@ -83,8 +83,14 @@ const toc = [
       </li>
       <li>
         <div>
-          <b>Check before saving</b>
-          <p>AI output varies. Make sure Trades includes <b>Closed Lots</b>, Open Positions is at <b>Lot</b> level and the format is <b>XML</b> — compare with the <a href="#sections">section list</a>. The tool also tells you if anything is missing after upload.</p>
+          <b>Click “Edit Manually” and press “Select All” in every section</b>
+          <p>The AI chooses a short default list of fields and leaves out <b>Open Date Time</b> — each lot's purchase date, which Schedule FA and capital gains depend on — plus IDs like <b>Conid</b>. In the editor, open each section, click <b>Select All</b>, and confirm Trades has <b>Closed Lots</b> ticked and Open Positions is at <b>Lot</b> level.</p>
+        </div>
+      </li>
+      <li>
+        <div>
+          <b>Save the query</b>
+          <p>The delivery period it sets (for example “Last Business Day”) doesn't matter — you pick custom dates each time you run it. After upload, the tool lists any field that is still missing.</p>
         </div>
       </li>
     </ol>

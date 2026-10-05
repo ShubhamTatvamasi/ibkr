@@ -132,3 +132,32 @@ describe('foreign income schedules (sample)', () => {
     expect(report.rates.every((r) => r.usedFor.size > 0)).toBe(true);
   });
 });
+
+describe('exports built by IBKR "Configure with AI" (default field subsets)', () => {
+  const STRIP = ['conid', 'isin', 'levelOfDetail', 'issuerCountryCode', 'transactionID', 'tradeID', 'description', 'reportDate'];
+  const strip = (xml: string, extra: string[] = []) =>
+    [...STRIP, ...extra].reduce((x, attr) => x.replace(new RegExp(` ${attr}="[^"]*"`, 'g'), ''), xml.replace(/<SecuritiesInfo>[\s\S]*?<\/SecuritiesInfo>/, ''));
+  const fx = load().fx;
+  const full = load();
+  const fullReport = buildReport(full.data, accountsIn(full.data)[0], 2026, DEFAULT_SETTINGS, fx);
+
+  it('still matches lots, prices and dividends by symbol', () => {
+    const data = parseFlexXml(strip(read('samples/sample-cy2025.xml')), 'cy.xml');
+    parseFlexXml(strip(read('samples/sample-fy2025-26.xml')), 'fy.xml', data);
+    const r = buildReport(data, accountsIn(data)[0], 2026, DEFAULT_SETTINGS, fx);
+    expect(r.warnings.filter((w) => w.level === 'error')).toEqual([]);
+    expect(r.cg.ltcg.gainInr.equals(fullReport.cg.ltcg.gainInr)).toBe(true);
+    expect(r.fa.a3.map((x) => x.peak?.inr.toFixed(0))).toEqual(fullReport.fa.a3.map((x) => x.peak?.inr.toFixed(0)));
+    expect(r.fa.a3.every((x) => x.peakQuality === 'daily')).toBe(true);
+    expect(r.income.dividendTotalInr.equals(fullReport.income.dividendTotalInr)).toBe(true);
+    expect(r.warnings.some((w) => w.level === 'info' && w.message.includes('Conid'))).toBe(true);
+  });
+
+  it('names the missing Open Date Time field', () => {
+    const data = parseFlexXml(strip(read('samples/sample-fy2025-26.xml'), ['openDateTime']), 'fy.xml');
+    const r = buildReport(data, accountsIn(data)[0], 2026, DEFAULT_SETTINGS, fx);
+    const errors = r.warnings.filter((w) => w.level === 'error').map((w) => w.message).join(' | ');
+    expect(errors).toContain('Trades (with Closed Lots) is missing the field Open Date Time');
+    expect(errors).toContain('Open Positions (Lot level) is missing the field Open Date Time');
+  });
+});
