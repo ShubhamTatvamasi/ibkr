@@ -23,7 +23,7 @@ const RIGHT = [
 // Our sections, in the order they appear in the grid (left column top-down, then right column).
 const PICK = [
   { name: 'Account Information', req: false, options: null, why: 'Account number and opening date for Schedule FA A2.' },
-  { name: 'Cash Transactions', req: true, options: 'Tick every transaction type (Dividends, Payment in Lieu of Dividends, Withholding Tax, 871(m) Withholding, Broker Interest Received, Deposits & Withdrawals …) and Detail.', why: 'Dividends, interest and US tax withheld.' },
+  { name: 'Cash Transactions', req: true, options: 'Tick every transaction type (Dividends … Commission Adjustments); leave Summary unticked; tick Detail.', why: 'Dividends, interest and US tax withheld.' },
   { name: 'Change in Dividend Accruals', req: false, options: 'Detail.', why: 'Ex-dates, so each dividend is credited to the lots that earned it.' },
   { name: 'Corporate Actions', req: false, options: 'Detail.', why: 'Splits and mergers are flagged for review.' },
   { name: 'Financial Instrument Information', req: false, options: null, why: 'Company names, ISIN, issuer country, ETF flag.' },
