@@ -413,3 +413,4 @@ html.is-dark .if-light, html:not(.is-dark) .if-dark { display: none; }
   .kv-row { grid-template-columns: 1fr; gap: 2px; }
 }
 .check-kv { margin-top: 8px; }
+.edit-list { margin: 6px 0 0; padding-left: 20px; font-size: var(--fs-ui); } .edit-list li + li { margin-top: 4px; }

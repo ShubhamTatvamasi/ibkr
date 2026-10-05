@@ -72,9 +72,14 @@ const toc = [
       </li>
       <li>
         <div>
-          <b>Click Edit Manually and press Select All in every section</b>
-          <p>Required. Even when asked for all fields, the AI usually keeps a short default list — without <b>Open Date Time</b> (each lot's purchase date) or <b>Conid</b>. Open each section, press <b>Select All</b>, and save the section.</p>
+          <b>Click Edit Manually: rename the query and select all fields</b>
+          <p>Required. Even when asked for all fields, the AI usually keeps a short default list — without <b>Open Date Time</b> (each lot's purchase date) or <b>Conid</b>. In the editor:</p>
+          <ul class="edit-list">
+            <li>Change <b>Query Name</b> to letters and numbers only, for example <code>IndiaTax</code>. The AI's name usually contains commas or “&amp;”, which IBKR rejects with <code>NAME_INVALID_CHARS</code>.</li>
+            <li>Open each section, press <b>Select All</b>, and save the section.</li>
+          </ul>
           <div class="kv check-kv">
+            <div class="kv-row"><span>Query Name</span><b>IndiaTax</b></div>
             <div class="kv-row"><span>Format</span><b>XML</b></div>
             <div class="kv-row"><span>Trades → Options</span><b>Execution and Closed Lots</b></div>
             <div class="kv-row"><span>Open Positions → Options</span><b>Lot</b></div>
@@ -90,8 +95,8 @@ const toc = [
       </li>
       <li>
         <div>
-          <b>Rename it, then Save</b>
-          <p>The AI's name usually contains commas or “&amp;”, which IBKR rejects with <code>NAME_INVALID_CHARS</code>. Use letters and numbers only, for example <code>IndiaTax</code>. The period it sets (for example “Last Business Day”) doesn't matter — you pick dates each time you run it. After upload, the tool lists any field that is still missing.</p>
+          <b>Save</b>
+          <p>The period it sets (for example “Last Business Day”) doesn't matter — you pick dates each time you run it. After upload, the tool lists any field that is still missing.</p>
         </div>
       </li>
     </ol>
@@ -106,7 +111,7 @@ const toc = [
           <span class="path-chip">Client Portal <Icon name="chevron-right" size={12} /> Performance &amp; Reports <Icon name="chevron-right" size={12} /> Flex Queries</span>
         </div>
       </li>
-      <li><div><b>Create an Activity Flex Query</b><p>Click <b>+</b> next to Activity Flex Query and name it with letters and numbers only, for example <code>IndiaTax</code>.</p></div></li>
+      <li><div><b>Create an Activity Flex Query</b><p>Click <b>+</b> next to Activity Flex Query and set <b>Query Name</b> to letters and numbers only, for example <code>IndiaTax</code>.</p></div></li>
       <li><div><b>Add each section below</b><p>In each section's popup set the options shown, click <b>Select All</b> for the fields, then <b>Save</b>.</p></div></li>
       <li><div><b>Apply the delivery settings</b><p>Set the format to XML, keep the other defaults, and save the query.</p></div></li>
     </ol>

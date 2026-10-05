@@ -142,8 +142,8 @@
       <div class="callout warn">
         <Icon name="warn" />
         <div>
-          <b>Then click Edit Manually and press Select All in every section.</b>
-          <p>Required — the AI keeps a short default field list without <b>Open Date Time</b>, each lot's purchase date. Also check: format XML, Trades with Closed Lots, Open Positions at Lot level. Optionally add Change in Dividend Accruals and Corporate Actions. Before saving, rename the query to letters and numbers only (e.g. IndiaTax) — IBKR rejects commas and “&amp;”.</p>
+          <b>Then click Edit Manually: rename the query and press Select All in every section.</b>
+          <p>Set <b>Query Name</b> to letters and numbers only (e.g. IndiaTax) — IBKR rejects the AI's commas and “&amp;”. Select All adds <b>Open Date Time</b>, each lot's purchase date, which the AI leaves out. Also check: format XML, Trades with Closed Lots, Open Positions at Lot level.</p>
         </div>
       </div>
     </details>
