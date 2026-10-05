@@ -159,10 +159,10 @@ Principles: money in `decimal.js`, round to whole ₹ only at output; every figu
 ## 7. Roadmap
 
 1. ✅ Scaffold Astro + GitHub Pages workflow
-2. TTBR data pipeline + lookup library
-3. Flex XML parser → normalized model (fixtures from synthetic exports)
-4. Lot ledger + Schedule FA A3/A2 (needs a real export to confirm Prior Period Positions coverage)
-5. CG, OS, FTC (FSI/TR/Form 67) + quarterly breakups
-6. Exports (portal CSV, CA workings, readme, ZIP) + UI wizard
-7. Flex Query setup guide page with screenshots; Activity Statement CSV fallback
+2. ✅ TTBR data pipeline + lookup library
+3. ✅ Flex XML parser → normalized model (fictional sample exports in `public/samples/`)
+4. ✅ Lot ledger + Schedule FA A3/A2 — **validate against a real export** (Prior Period Positions daily coverage & price semantics)
+5. ✅ CG, OS, FTC (FSI/TR/Form 67) + quarterly breakups
+6. ✅ Exports (portal CSV, CA workings, readme, ZIP) + dashboard
+7. ✅ Flex Query setup guide + method pages. Next: Activity Statement CSV fallback, split/merger lot adjustment, Web Worker
 8. Optional: price-API key support, Worker proxy for Flex Web Service, PWA/offline

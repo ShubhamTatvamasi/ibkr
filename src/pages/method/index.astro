@@ -1,0 +1,67 @@
+---
+import Base from '../../layouts/Base.astro';
+---
+<Base title="Calculation Method" description="Rules and conventions used to compute Schedule FA, CG, OS and foreign tax credit figures.">
+  <article class="prose">
+    <section class="hero">
+      <h1>How the numbers are computed</h1>
+      <p>Every figure carries the exchange rate and the date it was taken from. Where the law leaves room for interpretation, the choice is exposed as a setting rather than made silently. Review these with your CA.</p>
+    </section>
+
+    <h2>Which law</h2>
+    <p>AY 2026-27 (FY 2025-26) falls under the Income-tax Act 1961: Rule 115 for currency conversion, Rule 128 and Form 67 for the foreign tax credit, and section 112 for long-term gains. From tax year 2026-27 the Income-tax Act 2025 and the Income-tax Rules 2026 apply. The same substance carries over under new numbers: Rule 206 (conversion), Rule 76 and <b>Form 44</b> (foreign tax credit) and section 197. Form 44 must be verified by an accountant when foreign tax paid is ₹1 lakh or more.</p>
+
+    <h2>Exchange rates</h2>
+    <table>
+      <thead><tr><th>Figure</th><th>SBI TT buying rate on</th></tr></thead>
+      <tbody>
+        <tr><td>Capital gains</td><td>last day of the month before the month of sale (cost: the month before purchase, if converting separately)</td></tr>
+        <tr><td>Dividends</td><td>last day of the month before the month of payment</td></tr>
+        <tr><td>Broker interest</td><td>31 March, the last day of the previous year (setting: or monthly)</td></tr>
+        <tr><td>Foreign tax withheld</td><td>last day of the month before the month of deduction</td></tr>
+        <tr><td>Schedule FA initial value</td><td>acquisition date</td></tr>
+        <tr><td>Schedule FA peak value</td><td>each day of the year (peak of the rupee series)</td></tr>
+        <tr><td>Schedule FA closing value</td><td>31 December</td></tr>
+        <tr><td>Schedule FA dividends and proceeds</td><td>transaction date (setting: or 31 December)</td></tr>
+      </tbody>
+    </table>
+    <p>If SBI published no rate on a date (weekend, holiday or a gap in the archive), the latest earlier rate is used, and gaps longer than seven days are flagged. When SBI revised a rate during the day, the first rate card of the day is used. Rates come from <a href="https://github.com/sahilgupta/sbi-fx-ratekeeper">sbi-fx-ratekeeper</a>, which archives SBI's daily rate-card PDFs from January 2020.</p>
+
+    <h2>Schedule FA</h2>
+    <ul>
+      <li><b>Period:</b> calendar year 1 January – 31 December. It applies only to residents who are ordinarily resident.</li>
+      <li><b>Table A3</b> has one row per purchase lot held at any time in the year, including lots sold during the year (closing balance 0).</li>
+      <li><b>Initial value</b> is the cost of the shares held at the start of the year (or at purchase, if bought in the year), including commission.</li>
+      <li><b>Peak value</b> is the maximum over every priced day of shares held × that day's price × that day's TTBR. Prices come from IBKR's Prior Period Positions. Without that section, the peak is estimated from purchase, sale and year-end prices and marked approximate.</li>
+      <li><b>Dividends</b> are credited only to the lots held on the day before the ex-date, split by share count.</li>
+      <li><b>Table A2</b> covers the IBKR account itself. Peak and closing are the cash balance, rebuilt day by day from the Statement of Funds. Gross dividends, interest and sale proceeds credited during the year each get their own row.</li>
+      <li><b>Black Money Act penalty:</b> ₹10 lakh for non-disclosure. There is no penalty or prosecution if total foreign assets other than immovable property are ₹20 lakh or less (from 1 October 2024).</li>
+    </ul>
+
+    <h2>Capital gains</h2>
+    <ul>
+      <li>Sales are matched to the lot IBKR actually closed (its CLOSED_LOT records), not re-guessed with FIFO.</li>
+      <li>US shares are not listed on a recognised Indian exchange. They are long-term only when held for <b>more than 24 months</b> (36 months for sales before 23 July 2024). Long-term gains are taxed at 12.5% without indexation, and short-term gains at slab rates. The section 112A exemption does not apply.</li>
+      <li>Sale commission is expenditure on transfer. Purchase commission is part of cost.</li>
+      <li>STCG goes in A5 and LTCG in B8 of Schedule CG, with the quarterly Table F breakup by sale date.</li>
+      <li><b>Setting:</b> convert sale and cost separately (the common practice), or convert the foreign-currency gain once at the sale-month rate (a literal reading of Rule 115).</li>
+    </ul>
+
+    <h2>Dividends, interest and foreign tax credit</h2>
+    <ul>
+      <li>Dividends are income at their gross amount, before US withholding, with the quarterly breakup for section 234C.</li>
+      <li>Relief per country and income head = the lowest of: tax paid abroad, Indian tax on that income (at your marginal rate), and the treaty rate. Under the India–US treaty that is 25% for dividends (Article 10) and 15% for interest (Article 11). If more than 25% was withheld, your W-8BEN is likely missing; the excess is not creditable in India.</li>
+      <li>Residents claim treaty relief only through Schedules FSI and TR, and Form 67 / Form 44 must be filed before the return.</li>
+    </ul>
+
+    <h2>Not covered</h2>
+    <ul>
+      <li>Options, futures, forex and bonds</li>
+      <li>Short sales</li>
+      <li>Indexation for pre-July-2024 long-term sales</li>
+      <li>Automatic lot adjustment for stock splits and mergers (these are flagged instead)</li>
+      <li>Schedule AL, which applies when total income exceeds ₹1 crore</li>
+      <li>The section 50AA treatment of bond ETFs</li>
+    </ul>
+  </article>
+</Base>

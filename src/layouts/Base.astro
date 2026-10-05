@@ -1,9 +1,18 @@
 ---
+import '../styles/global.css';
+
 interface Props {
   title: string;
   description?: string;
 }
-const { title, description = 'Private, in-browser Indian tax reports from Interactive Brokers statements.' } = Astro.props;
+const { title, description = 'Private, in-browser Indian tax reports (Schedule FA, CG, OS, FSI/TR, Form 67) from Interactive Brokers statements.' } = Astro.props;
+const base = import.meta.env.BASE_URL.replace(/\/?$/, '/');
+const path = Astro.url.pathname.replace(/\/?$/, '/');
+const nav = [
+  { href: base, label: 'Tool' },
+  { href: `${base}guide/`, label: 'Flex Query guide' },
+  { href: `${base}method/`, label: 'Method' },
+];
 ---
 <!doctype html>
 <html lang="en">
@@ -11,10 +20,31 @@ const { title, description = 'Private, in-browser Indian tax reports from Intera
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <meta name="description" content={description} />
-    <link rel="icon" href={`${import.meta.env.BASE_URL}/favicon.svg`} type="image/svg+xml" />
+    {/* Only same-origin network access: statements cannot be sent anywhere. Off in dev (HMR websocket). */}
+    {import.meta.env.PROD && (
+      <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; connect-src 'self'; object-src 'none'; base-uri 'self'" />
+    )}
+    <link rel="icon" href={`${base}favicon.svg`} type="image/svg+xml" />
     <title>{title}</title>
   </head>
   <body>
-    <slot />
+    <header class="site-header">
+      <div class="wrap">
+        <a class="brand" href={base}><span class="brand-mark">₹</span><span>IBKR India Tax</span></a>
+        <nav class="site-nav">
+          {nav.map((n) => <a href={n.href} aria-current={path === n.href ? 'page' : undefined}>{n.label}</a>)}
+          <a href="https://github.com/ShubhamTatvamasi/ibkr">GitHub</a>
+        </nav>
+      </div>
+    </header>
+    <main class="wrap">
+      <slot />
+    </main>
+    <footer class="site-footer">
+      <div class="wrap">
+        Calculation aid, not tax advice — review every figure with your Chartered Accountant. Exchange rates: SBI TT buying rates via{" "}
+        <a href="https://github.com/sahilgupta/sbi-fx-ratekeeper">sbi-fx-ratekeeper</a>. Your statements are processed only in this browser.
+      </div>
+    </footer>
   </body>
 </html>

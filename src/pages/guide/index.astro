@@ -1,0 +1,74 @@
+---
+import Base from '../../layouts/Base.astro';
+const base = import.meta.env.BASE_URL.replace(/\/?$/, '/');
+const sections = [
+  { name: 'Account Information', options: '—', why: 'Account number, opening date and IBKR entity for Schedule FA A2.', fields: 'Select All' },
+  { name: 'Trades', options: 'Executions and Closed Lots (both ticked)', why: 'Every sale with the exact lot it closed — acquisition date and cost — for capital gains and A3.', fields: 'Select All' },
+  { name: 'Open Positions', options: 'Lot (not Summary only)', why: 'One row per purchase lot with its open date — Table A3 needs one row per lot.', fields: 'Select All' },
+  { name: 'Cash Transactions', options: 'Detail; include Dividends, Payment in Lieu, Withholding Tax, 871(m), Broker Interest', why: 'Dividends, interest and US tax withheld for Schedule OS, FSI, TR and Form 67.', fields: 'Select All' },
+  { name: 'Prior Period Positions', options: '—', why: 'Daily price of every position you held — gives exact Schedule FA peak values without any external price service.', fields: 'Select All' },
+  { name: 'Statement of Funds', options: '—', why: 'Running cash balance — gives the true peak cash balance for Table A2.', fields: 'Select All' },
+  { name: 'Financial Instrument Information', options: '—', why: 'Full company names, ISIN and issuer country.', fields: 'Select All' },
+  { name: 'Cash Report', options: '—', why: 'Opening and closing cash (fallback for A2).', fields: 'Select All' },
+  { name: 'Change in Dividend Accruals', options: '—', why: 'Ex-dates, so dividends are matched to the lots that earned them.', fields: 'Select All' },
+  { name: 'Corporate Actions', options: '—', why: 'Splits, mergers and spin-offs are flagged for review.', fields: 'Select All' },
+];
+---
+<Base title="IBKR Flex Query Setup" description="How to create the IBKR Activity Flex Query this tool needs, step by step.">
+  <article class="prose">
+    <section class="hero">
+      <h1>Create your IBKR Flex Query</h1>
+      <p>A Flex Query is a report template you build once in IBKR and run for any date range. It is the only IBKR export with lot-level detail: each purchase's date and cost, and which lot each sale closed. That detail is exactly what Schedule FA and capital gains need. Setting it up takes about ten minutes, once.</p>
+    </section>
+
+    <h2>1 · Create the template</h2>
+    <ol>
+      <li>Log in to IBKR Client Portal → <b>Performance &amp; Reports</b> → <b>Flex Queries</b>.</li>
+      <li>Next to <b>Activity Flex Query</b>, click <b>+</b> and name it, e.g. <code>india-tax</code>.</li>
+      <li>Add each section below. In each section's popup, set the options shown and click <b>Select All</b> for the fields, then <b>Save</b>.</li>
+    </ol>
+
+    <h2>2 · Sections</h2>
+    <div class="scroll">
+      <table>
+        <thead><tr><th>Section</th><th>Options</th><th>Why it's needed</th></tr></thead>
+        <tbody>
+          {sections.map((s) => <tr><td><b>{s.name}</b></td><td>{s.options}</td><td>{s.why}</td></tr>)}
+        </tbody>
+      </table>
+    </div>
+    <p class="muted">Only Trades, Open Positions and Cash Transactions are strictly required. The others make the numbers exact rather than approximate, and the tool tells you which ones are missing.</p>
+
+    <h2>3 · Delivery and general configuration</h2>
+    <table>
+      <tbody>
+        <tr><td>Format</td><td><b>XML</b></td></tr>
+        <tr><td>Period</td><td>Any — you choose dates when you run it</td></tr>
+        <tr><td>Date format</td><td><code>yyyyMMdd</code> (default) or <code>yyyy-MM-dd</code></td></tr>
+        <tr><td>Time format</td><td><code>HHmmss</code> (default)</td></tr>
+        <tr><td>Include canceled trades</td><td>No</td></tr>
+        <tr><td>Everything else</td><td>Leave at default</td></tr>
+      </tbody>
+    </table>
+
+    <h2>4 · Run it twice</h2>
+    <p>Schedule FA runs on the <b>calendar year</b>, while capital gains, dividends and the foreign tax credit run on the <b>financial year</b>. IBKR allows at most 365 days per run, so run the saved query twice with custom dates:</p>
+    <table>
+      <thead><tr><th>Return</th><th>Run 1 — Schedule FA</th><th>Run 2 — CG, OS, FSI/TR</th></tr></thead>
+      <tbody>
+        <tr><td>AY 2026-27 (FY 2025-26)</td><td>1 Jan 2025 – 31 Dec 2025</td><td>1 Apr 2025 – 31 Mar 2026</td></tr>
+        <tr><td>Tax year 2026-27</td><td>1 Jan 2026 – 31 Dec 2026</td><td>1 Apr 2026 – 31 Mar 2027</td></tr>
+      </tbody>
+    </table>
+    <p>Click the run (▶) icon on the query, choose <b>Custom Date Range</b>, set the dates and <b>Run</b>, then download the XML. Drop both files into the <a href={base}>tool</a> together. Overlapping data is merged without double counting.</p>
+
+    <h2>Notes</h2>
+    <ul>
+      <li>IBKR keeps Flex data for the four previous calendar years plus the current one. Lots bought earlier still appear in Open Positions with their original open date.</li>
+      <li>SBI rates in this tool start in January 2020. For older purchases, the tool asks you to enter the rate from SBI's historical rate card.</li>
+      <li>Options, futures and forex trades are listed as warnings but not computed.</li>
+      <li>Want to see the output first? Use <b>Try sample data</b> on the <a href={base}>tool page</a>. It is a fictional account.</li>
+    </ul>
+    <p class="note">Your XML file contains your account number and full trading history. This site has no server: the file is read by JavaScript in your browser, and the page's security policy blocks it from contacting any other site.</p>
+  </article>
+</Base>
