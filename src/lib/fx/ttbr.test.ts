@@ -51,3 +51,10 @@ describe('TtbrTable', () => {
     expect(() => table.onOrBefore('2025-06-01')).toThrow(/refresh/);
   });
 });
+
+describe('TtbrTable per-100 quotes', () => {
+  it('returns INR per single unit', () => {
+    const jpy = new TtbrTable({ currency: 'JPY', per: 100, source: 'test', from: '2025-01-01', to: '2025-01-01', rates: { '2025-01-01': '60.29' } });
+    expect(jpy.onOrBefore('2025-01-01').rate.toString()).toBe('0.6029');
+  });
+});

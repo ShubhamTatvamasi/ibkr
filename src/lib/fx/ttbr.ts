@@ -1,9 +1,11 @@
 import Decimal from 'decimal.js';
 import { assertIsoDate, daysBetween, lastDayOfPrecedingMonth, type IsoDate } from '../dates';
 
-/** Shape of public/data/ttbr/{CCY}.json as written by scripts/fetch-ttbr.mjs. */
+/** Shape of public/data/ttbr/{CCY}.json as written by scripts/update-sbi-rates.mjs. */
 export interface TtbrFile {
   currency: string;
+  /** SBI quotes some currencies (JPY, THB, KRW) per 100 units; rates in the file are as quoted. */
+  per?: number;
   source: string;
   from: IsoDate;
   to: IsoDate;
@@ -29,9 +31,11 @@ export class TtbrTable {
   readonly currency: string;
   private readonly dates: IsoDate[];
   private readonly rates: Record<IsoDate, string>;
+  private readonly per: number;
 
   constructor(file: TtbrFile) {
     this.currency = file.currency;
+    this.per = file.per ?? 1;
     this.rates = file.rates;
     this.dates = Object.keys(file.rates).sort();
     if (this.dates.length === 0) throw new Error(`no TTBR data for ${file.currency}`);
@@ -68,7 +72,7 @@ export class TtbrTable {
     const rateDate = this.dates[lo];
     return {
       currency: this.currency,
-      rate: new Decimal(this.rates[rateDate]),
+      rate: new Decimal(this.rates[rateDate]).div(this.per),
       requestedDate: date,
       rateDate,
       staleDays: daysBetween(rateDate, date),

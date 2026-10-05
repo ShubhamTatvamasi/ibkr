@@ -4,12 +4,13 @@ on:
   push:
     branches: [main]
   workflow_dispatch:
-  # Daily rebuild picks up the latest SBI TT buying rates (~04:30 IST).
+  # Record each day's SBI TT buying rate card (published ~9 AM IST): 10:30 and 14:30 IST.
   schedule:
-    - cron: '0 23 * * *'
+    - cron: '0 5 * * *'
+    - cron: '0 9 * * *'
 
 permissions:
-  contents: read
+  contents: write
   pages: write
   id-token: write
 
@@ -28,7 +29,16 @@ jobs:
           cache: npm
       - run: npm ci
       - run: npm test
-      - run: npm run data:ttbr
+      - name: Record today's SBI rates
+        run: |
+          npm run rates || echo "::warning::SBI rate card unavailable; deploying existing rates"
+          if [ -n "$(git status --porcelain public/data/ttbr)" ]; then
+            git config user.name "github-actions[bot]"
+            git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+            git add public/data/ttbr
+            git commit -m "Record SBI TT buying rates $(date -u +%F)"
+            git push
+          fi
       - run: npm run build
       - uses: actions/upload-pages-artifact@v5
         with:

@@ -61,12 +61,13 @@ No maintained JS Flex parser or tax-lot library exists on npm — we write both.
   re-appear mid-section; skip Total/SubTotal rows.
 
 ### SBI TT buying rate
-- [sahilgupta/sbi-fx-ratekeeper](https://github.com/sahilgupta/sbi-fx-ratekeeper) (MIT, daily auto-commits,
-  31 currencies, from Jan 2020). `raw.githubusercontent.com` serves `access-control-allow-origin: *`.
-- Quirks: duplicate rows per date (rate revisions), `TT BUY = 0.00` rows (2020–22 Saturdays),
+- SBI publishes only the current day's card as a PDF (`sbi.bank.in/documents/16012/1400784/FOREX_CARD_RATES.pdf`),
+  so the archive has to be recorded daily. `scripts/update-sbi-rates.mjs` parses the card (first number after
+  `CCY/INR` is TT BUY) and the deploy workflow commits new dates to `public/data/ttbr/`. JPY/THB/KRW are per 100 units.
+- Historical archive (Jan 2020 onward) is held in this repo. Quirks: duplicate rows per date (rate revisions), `TT BUY = 0.00` rows (2020–22 Saturdays),
   missing working days and month-ends → fall back to the latest earlier published rate.
 - Pre-2020 rates are absent → RBI/FBIL reference rate with a visible warning, or manual entry.
-- We vendor it at build time into `public/data/ttbr/{CCY}.json` (nightly rebuild).
+- First card seen for a date is kept; existing dates are never overwritten.
 
 ### Daily prices (only if Prior Period Positions is insufficient)
 - Browser-CORS-friendly with a user-supplied key: Twelve Data (800/day), Polygon, FMP, Alpha Vantage (small).
@@ -138,7 +139,7 @@ Astro 7 static site (base /ibkr) on GitHub Pages, deployed by GitHub Actions
    ├─ lots/               lot ledger: IBKR CLOSED_LOT rows as truth, FIFO cross-check, splits/mergers/transfers
    ├─ reports/            FA A2/A3, CG (+quarters), OS (+quarters), FSI/TR/Form 67
    └─ export/             portal CSVs, CA workings CSVs, readme, ZIP (JSZip)
-public/data/ttbr/{CCY}.json   built from sbi-fx-ratekeeper at deploy time (nightly)
+public/data/ttbr/{CCY}.json   SBI TT buying rates, recorded daily from SBI's card by the deploy workflow
 ```
 
 Principles: money in `decimal.js`, round to whole ₹ only at output; every figure carries
