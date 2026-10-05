@@ -1,6 +1,10 @@
 ---
 import Base from '../../layouts/Base.astro';
 const base = import.meta.env.BASE_URL.replace(/\/?$/, '/');
+const prompts = [
+  'Activity XML: Trades with Executions and Closed Lots, Open Positions at Lot level, Cash Transactions detail, Prior Period Positions, Statement of Funds, Account Information. All fields.',
+  'Also add Financial Instrument Information, Cash Report, Change in Dividend Accruals and Corporate Actions, all fields. Date format yyyyMMdd, exclude canceled trades.',
+];
 const sections = [
   { name: 'Account Information', options: '—', why: 'Account number, opening date and IBKR entity for Schedule FA A2.', fields: 'Select All' },
   { name: 'Trades', options: 'Executions and Closed Lots (both ticked)', why: 'Every sale with the exact lot it closed — acquisition date and cost — for capital gains and A3.', fields: 'Select All' },
@@ -21,7 +25,17 @@ const sections = [
       <p>A Flex Query is a report template you build once in IBKR and run for any date range. It is the only IBKR export with lot-level detail: each purchase's date and cost, and which lot each sale closed. That detail is exactly what Schedule FA and capital gains need. Setting it up takes about ten minutes, once.</p>
     </section>
 
-    <h2>1 · Create the template</h2>
+    <h2>Quick way: Configure with AI</h2>
+    <p>IBKR can now build the query from a description. Go to <b>Performance &amp; Reports</b> → <b>Flex Queries</b> → <b>Configure with AI</b>, paste the first prompt and click <b>Generate Flex Query</b>, then send the second one to add the remaining sections. The box takes up to 200 characters, so the request is split in two.</p>
+    {prompts.map((p, i) => (
+      <div class="prompt">
+        <div class="prompt-head"><b>Prompt {i + 1}</b><button class="btn copy" data-copy={p}>Copy</button></div>
+        <p>{p}</p>
+      </div>
+    ))}
+    <p class="muted">AI output can vary. Before saving, check the generated query against the section table below: <b>Trades</b> must include Closed Lots, <b>Open Positions</b> must be at Lot level, and the format must be XML. If anything is missing, the tool also lists the missing sections after you upload. Then run the query twice, as in step 4.</p>
+
+    <h2>1 · Or create the template by hand</h2>
     <ol>
       <li>Log in to IBKR Client Portal → <b>Performance &amp; Reports</b> → <b>Flex Queries</b>.</li>
       <li>Next to <b>Activity Flex Query</b>, click <b>+</b> and name it, e.g. <code>india-tax</code>.</li>
@@ -72,3 +86,17 @@ const sections = [
     <p class="note">Your XML file contains your account number and full trading history. This site has no server: the file is read by JavaScript in your browser, and the page's security policy blocks it from contacting any other site.</p>
   </article>
 </Base>
+
+<script>
+  for (const btn of document.querySelectorAll<HTMLButtonElement>('button[data-copy]')) {
+    btn.addEventListener('click', async () => {
+      try {
+        await navigator.clipboard.writeText(btn.dataset.copy ?? '');
+        btn.textContent = 'Copied';
+      } catch {
+        btn.textContent = 'Select & copy';
+      }
+      setTimeout(() => (btn.textContent = 'Copy'), 1500);
+    });
+  }
+</script>
