@@ -3,10 +3,8 @@ import Docs from '../../layouts/Docs.astro';
 import Icon from '../../components/Icon.astro';
 
 const base = import.meta.env.BASE_URL.replace(/\/?$/, '/');
-const prompts = [
-  'Activity XML, all fields incl. Open Date Time and Conid: Trades (Executions + Closed Lots), Open Positions (Lot), Cash Transactions (Detail), Prior Period Positions, Statement of Funds',
-  'Also add Account Information, Financial Instrument Information, Cash Report, Change in Dividend Accruals and Corporate Actions, with all fields selected. Date format yyyyMMdd.',
-];
+const prompt =
+  'XML, all fields: Trades (Executions + Closed Lots), Open Positions (Lot), Cash Transactions, Prior Period Positions, Statement of Funds, Account Information, Financial Instrument Information';
 const sections = [
   { name: 'Trades', options: 'Executions + Closed Lots', why: 'Every sale with the exact lot it closed: acquisition date and cost.', req: true },
   { name: 'Open Positions', options: 'Lot (not Summary only)', why: 'One row per purchase lot with its open date — Schedule FA A3 needs one row per lot.', req: true },
@@ -55,7 +53,7 @@ const toc = [
 
   <section id="ai">
     <h2><span class="h-icon"><Icon name="sparkle" size={18} /></span>Quick way: Configure with AI</h2>
-    <p class="sec-lead">IBKR can build the query from a description. Its prompt box takes 200 characters, so the request is split in two.</p>
+    <p class="sec-lead">IBKR can build the query from one description of up to 200 characters. Each prompt generates a whole new query, so use this single prompt rather than several.</p>
     <ol class="vsteps">
       <li>
         <div>
@@ -65,32 +63,36 @@ const toc = [
       </li>
       <li>
         <div>
-          <b>Paste the first prompt and click Generate Flex Query</b>
+          <b>Paste this prompt and click Generate Flex Query</b>
           <div class="prompt">
-            <div class="prompt-head"><b>Prompt 1</b><button class="btn sm" data-copy={prompts[0]}><Icon name="copy" size={16} /><span>Copy</span></button></div>
-            <p>{prompts[0]}</p>
+            <div class="prompt-head"><b>Prompt · {prompt.length}/200 characters</b><button class="btn sm" data-copy={prompt}><Icon name="copy" size={16} /><span>Copy</span></button></div>
+            <p>{prompt}</p>
           </div>
+          <p>Saying “all fields” matters: without it the AI picks a short default list that leaves out <b>Open Date Time</b>, each lot's purchase date.</p>
         </div>
       </li>
       <li>
         <div>
-          <b>Send the second prompt to add the rest</b>
-          <div class="prompt">
-            <div class="prompt-head"><b>Prompt 2</b><button class="btn sm" data-copy={prompts[1]}><Icon name="copy" size={16} /><span>Copy</span></button></div>
-            <p>{prompts[1]}</p>
+          <b>Review the generated query</b>
+          <div class="kv check-kv">
+            <div class="kv-row"><span>Format</span><b>XML</b> </div>
+            <div class="kv-row"><span>Trades → Options</span><b>Execution and Closed Lots</b></div>
+            <div class="kv-row"><span>Open Positions → Options</span><b>Lot</b></div>
+            <div class="kv-row"><span>Trades and Open Positions fields</span><b>include Open Date Time</b></div>
           </div>
+          <p>If anything differs, click <b>Edit Manually</b>, fix it, and press <b>Select All</b> in any section with a short field list.</p>
         </div>
       </li>
       <li>
         <div>
-          <b>Click “Edit Manually” and press “Select All” in every section</b>
-          <p>The AI chooses a short default list of fields and leaves out <b>Open Date Time</b> — each lot's purchase date, which Schedule FA and capital gains depend on — plus IDs like <b>Conid</b>. In the editor, open each section, click <b>Select All</b>, and confirm Trades has <b>Closed Lots</b> ticked and Open Positions is at <b>Lot</b> level.</p>
+          <b>Optional: add two more sections</b>
+          <p>In <b>Edit Manually</b>, add <b>Change in Dividend Accruals</b> (ex-dates for matching dividends to lots) and <b>Corporate Actions</b> (flags splits), each with <b>Select All</b>.</p>
         </div>
       </li>
       <li>
         <div>
-          <b>Save the query</b>
-          <p>The delivery period it sets (for example “Last Business Day”) doesn't matter — you pick custom dates each time you run it. After upload, the tool lists any field that is still missing.</p>
+          <b>Save</b>
+          <p>The period it sets (for example “Last Business Day”) doesn't matter — you pick dates each time you run it. After upload, the tool lists any field that is still missing.</p>
         </div>
       </li>
     </ol>

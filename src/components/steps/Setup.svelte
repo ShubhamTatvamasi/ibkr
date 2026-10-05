@@ -11,10 +11,8 @@
   let dragging = $state(false);
   let input: HTMLInputElement;
 
-  const PROMPTS = [
-    'Activity XML, all fields incl. Open Date Time and Conid: Trades (Executions + Closed Lots), Open Positions (Lot), Cash Transactions (Detail), Prior Period Positions, Statement of Funds',
-    'Also add Account Information, Financial Instrument Information, Cash Report, Change in Dividend Accruals and Corporate Actions, with all fields selected. Date format yyyyMMdd.',
-  ];
+  const PROMPT =
+    'XML, all fields: Trades (Executions + Closed Lots), Open Positions (Lot), Cash Transactions, Prior Period Positions, Statement of Funds, Account Information, Financial Instrument Information';
 
   const RATES = [
     { v: 0, l: 'No tax (income below exemption)' },
@@ -136,18 +134,16 @@
     </div>
     <details class="ai">
       <summary><Icon name="sparkle" size={18} />Quickest: use IBKR's <b>Configure with AI</b> to build the query</summary>
-      <p class="muted">Performance &amp; Reports → Flex Queries → Configure with AI. Paste the first prompt, then send the second.</p>
-      {#each PROMPTS as p, i}
-        <div class="prompt">
-          <div class="prompt-head"><b>Prompt {i + 1}</b><CopyButton value={p} label={`prompt ${i + 1}`} /></div>
-          <p>{p}</p>
-        </div>
-      {/each}
+      <p class="muted">Performance &amp; Reports → Flex Queries → Configure with AI. Paste this one prompt and click Generate Flex Query — each prompt builds a whole new query, so don't send a second.</p>
+      <div class="prompt">
+        <div class="prompt-head"><b>Prompt · {PROMPT.length}/200</b><CopyButton value={PROMPT} label="prompt" /></div>
+        <p>{PROMPT}</p>
+      </div>
       <div class="callout warn">
         <Icon name="warn" />
         <div>
-          <b>Then click “Edit Manually” and press “Select All” in every section.</b>
-          <p>The AI picks a short default list of fields that leaves out <b>Open Date Time</b> — the purchase date of each lot, which Schedule FA and capital gains depend on. Select All fixes it. Then Save.</p>
+          <b>Check before saving: format XML, Trades with Closed Lots, Open Positions at Lot level.</b>
+          <p>Trades and Open Positions must include <b>Open Date Time</b>. If a section's field list looks short, click Edit Manually and press Select All. Optionally add Change in Dividend Accruals and Corporate Actions there too.</p>
         </div>
       </div>
     </details>

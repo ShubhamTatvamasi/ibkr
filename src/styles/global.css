@@ -412,3 +412,4 @@ html.is-dark .if-light, html:not(.is-dark) .if-dark { display: none; }
 @media (max-width: 640px) {
   .kv-row { grid-template-columns: 1fr; gap: 2px; }
 }
+.check-kv { margin-top: 8px; }
