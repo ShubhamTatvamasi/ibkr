@@ -3,7 +3,7 @@ import type { FlexData } from '../lib/flex/model';
 import { DEFAULT_SETTINGS, type Settings } from '../lib/tax/common';
 import { accountsIn, buildReport, currenciesIn, sectionChecklist, type Report } from '../lib/tax/engine';
 import { Fx, type RateOverrides } from '../lib/tax/fx';
-import { SUPPORTED_AY, taxYear } from '../lib/tax/years';
+import { taxYear } from '../lib/tax/years';
 import type { EntityOverrides } from '../lib/export/pack';
 import { BASE, persist, store } from '../lib/ui/format';
 
@@ -43,7 +43,8 @@ class AppState {
   busy = $state(false);
   isSample = $state(false);
 
-  ay = $state(2026);
+  /** Tax year 2026-27 (assessment year 2027-28) unless the user picks another. */
+  ay = $state(2027);
   accountId = $state('');
   settings = $state<Settings>(store('settings', DEFAULT_SETTINGS));
   rateOverrides = $state<RateOverrides>({});
@@ -149,7 +150,6 @@ class AppState {
 
   private async ingest(next: LoadedFile[]) {
     this.busy = true;
-    const firstLoad = !this.data;
     try {
       const merged = emptyFlexData();
       const files: LoadedFile[] = [];
@@ -168,11 +168,6 @@ class AppState {
       }
       this.fx = await Fx.load(currenciesIn(merged), BASE);
       this.data = merged;
-      if (firstLoad) {
-        const latest = merged.statements.map((s) => s.toDate).sort().at(-1) ?? '';
-        const fit = SUPPORTED_AY.find((y) => taxYear(y).fyEnd <= latest) ?? SUPPORTED_AY.find((y) => taxYear(y).cyEnd <= latest);
-        if (fit) this.ay = fit;
-      }
       const ids = accountsIn(merged).map((a) => a.accountId);
       if (!ids.includes(this.accountId)) this.accountId = ids[0] ?? '';
     } finally {
