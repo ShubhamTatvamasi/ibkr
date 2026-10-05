@@ -32,6 +32,8 @@ export interface PackFile {
   content: string;
   /** Parsed rows for previews (header first); absent for text files. */
   table?: Cell[][];
+  /** Nothing to report in this file for the year (e.g. no sales, no dividends). */
+  empty: boolean;
 }
 
 export function packPrefix(r: Report): string {
@@ -43,8 +45,18 @@ export function buildPack(r: Report, entities: EntityOverrides = {}): PackFile[]
   const { year: ty, fa, cg, income, foreign } = r;
   const pre = packPrefix(r);
   const files: PackFile[] = [];
-  const add = (f: Omit<PackFile, 'rows' | 'content' | 'name'> & { name: string; table: Cell[][] }) =>
-    files.push({ name: `${pre}_${f.name}`, title: f.title, description: f.description, usedFor: f.usedFor, category: f.category, rows: Math.max(0, f.table.length - 1), content: toCsv(f.table), table: f.table });
+  const add = (f: Omit<PackFile, 'rows' | 'content' | 'name' | 'empty'> & { name: string; table: Cell[][]; empty?: boolean }) =>
+    files.push({
+      name: `${pre}_${f.name}`,
+      title: f.title,
+      description: f.description,
+      usedFor: f.usedFor,
+      category: f.category,
+      rows: Math.max(0, f.table.length - 1),
+      content: toCsv(f.table),
+      table: f.table,
+      empty: f.empty ?? f.table.length <= 1,
+    });
 
   // ---------- schedules, in the order they are filed ----------
   add({
@@ -62,6 +74,7 @@ export function buildPack(r: Report, entities: EntityOverrides = {}): PackFile[]
   const cgRow = (label: string, st: Decimal | number | undefined, lt: Decimal | number | undefined): Cell[] => [label, typeof st === 'number' ? st : rupees(st), typeof lt === 'number' ? lt : rupees(lt)];
   add({
     name: '02_schedule_cg.csv',
+    empty: cg.rows.length === 0,
     title: 'Schedule CG — capital gains',
     description: 'Section A5 (short-term) and B8 (long-term) fields, and Table F quarterly accrual.',
     usedFor: ['Schedule CG'],
@@ -80,6 +93,7 @@ export function buildPack(r: Report, entities: EntityOverrides = {}): PackFile[]
 
   add({
     name: '03_schedule_os.csv',
+    empty: income.dividends.length === 0 && income.interest.length === 0,
     title: 'Schedule OS — dividends and interest',
     description: 'Gross dividends (1a(i)), broker interest (1b(ix)) and the dividend quarterly breakup.',
     usedFor: ['Schedule OS'],
@@ -243,6 +257,7 @@ export function buildPack(r: Report, entities: EntityOverrides = {}): PackFile[]
     usedFor: ['Start here'],
     category: 'reference',
     rows: 0,
+    empty: false,
     content: readme(r, files),
   });
   return files;

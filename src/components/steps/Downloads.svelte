@@ -19,6 +19,16 @@
     { id: 'reference', title: 'Reference', sub: 'The README and the appendix of every exchange rate used.' },
   ];
   const count = (c: PackCategory) => files.filter((f) => f.category === c).length;
+  const needed = $derived(files.filter((f) => f.category === 'schedule' && !f.empty));
+  const scheduleLink: Record<string, string> = {
+    '01_form67.csv': 'form67',
+    '02_schedule_cg.csv': 'cg',
+    '03_schedule_os.csv': 'os',
+    '04_schedule_fsi.csv': 'fsi',
+    '05_schedule_tr.csv': 'tr',
+    '06_schedule_fa_A2.csv': 'fa-a2',
+    '07_schedule_fa_A3.csv': 'fa-a3',
+  };
   const kb = (n: number) => (n < 1024 ? `${n} B` : `${(n / 1024).toFixed(n < 10240 ? 1 : 0)} KB`);
   const fmt = (name: string) => (name.endsWith('.csv') ? 'CSV' : 'TXT');
   const short = (name: string) => name.replace(/^[^_]+_/, '');
@@ -44,14 +54,19 @@
     dialog?.showModal();
   }
 
-  const CHECKS = $derived([
-    `${r.year.law.ftcForm} filed and acknowledged before the return`,
-    'Schedule CG: US shares under A5 / B8, not listed equity or 112A',
-    'Schedule OS dividends are gross; FSI income matches CG and OS',
-    `Schedule FA covers calendar year ${r.year.cyStart.slice(0, 4)} — including lots sold during the year`,
-    'Foreign-assets question in Part B-TTI answered “Yes”',
-    'Tax collected at source on remittances claimed (from Form 26AS)',
-  ]);
+  const CHECKS = $derived(
+    [
+      [r.foreign.form67.length > 0, `${r.year.law.ftcForm} filed and acknowledged before the return`],
+      [r.cg.rows.length > 0, 'Schedule CG: foreign shares under A5 / B8, not listed equity or 112A'],
+      [r.income.dividends.length + r.income.interest.length > 0, 'Schedule OS dividends are gross; FSI income matches CG and OS'],
+      [r.fa.a3.length > 0, `Schedule FA covers calendar year ${r.year.cyStart.slice(0, 4)} — including lots sold during the year`],
+      [r.fa.a3.length + r.fa.a2.length > 0, 'Foreign-assets question in Part B-TTI answered “Yes”'],
+      [r.insights.remittances.count > 0, 'Tax collected at source on remittances claimed (from Form 26AS)'],
+      [r.periods.fa.inProgress || r.periods.fy.inProgress, 'Re-exported from IBKR after the year ended — these figures are provisional'],
+    ]
+      .filter(([on]) => on)
+      .map(([, text]) => text as string),
+  );
 </script>
 
 <header class="page-head">
@@ -79,6 +94,31 @@
   </div>
 </section>
 
+<section class="needed card">
+  <div class="card-head">
+    <div>
+      <h3>For your return</h3>
+      <p>
+        {needed.length ? `${needed.length} of ${count('schedule')} schedules have something to report. The portal has no file upload for these — enter the values from “File your return”, which has a copy button for every field.` : 'Nothing to report in any schedule for this year.'}
+      </p>
+    </div>
+  </div>
+  {#if needed.length}
+    <ul class="need-list">
+      {#each needed as f}
+        <li>
+          <Icon name="check-circle" size={18} />
+          <span><b>{f.title}</b><small class="mono">{short(f.name)}</small></span>
+          <button class="btn sm" onclick={() => app.go('file', scheduleLink[short(f.name)] as never)}>Enter in portal<Icon name="arrow-right" size={16} /></button>
+        </li>
+      {/each}
+    </ul>
+  {/if}
+  {#if r.periods.fa.inProgress || r.periods.fy.inProgress}
+    <p class="prov"><Icon name="clock" size={16} /><span>Provisional: the year isn't over. Re-export from IBKR after it ends and rebuild the pack before filing.</span></p>
+  {/if}
+</section>
+
 <div class="seg filters" role="tablist" aria-label="Filter files">
   {#each [['all', 'All', files.length], ['schedule', 'Schedules', count('schedule')], ['working', 'Working papers', count('working')], ['reference', 'Reference', count('reference')]] as [id, label, n]}
     <button role="tab" aria-selected={filter === id} class:on={filter === id} onclick={() => (filter = id as typeof filter)}>{label} <span class="num faint">{n}</span></button>
@@ -90,7 +130,7 @@
     <div class="g-head"><h3>{g.title}</h3><p class="muted">{g.sub}</p></div>
     <ul class="docs">
       {#each files.filter((f) => f.category === g.id) as f}
-        <li class="doc">
+        <li class="doc" class:empty={f.empty}>
           <span class="d-icon"><Icon name={f.name.endsWith('.csv') ? 'file-table' : 'file-text'} size={22} /></span>
           <div class="d-main">
             <span class="d-name mono">{short(f.name)}</span>
@@ -101,7 +141,7 @@
             </span>
           </div>
           <div class="d-meta">
-            <span class="badge format">{fmt(f.name)}</span>
+            {#if f.empty}<span class="badge">Nothing to report</span>{:else}<span class="badge format">{fmt(f.name)}</span>{/if}
             <span class="num faint">{kb(byteSize(f.content))}{f.table ? ` · ${f.rows} row${f.rows === 1 ? '' : 's'}` : ''}</span>
           </div>
           <div class="d-act">
@@ -187,6 +227,16 @@
   .docs { list-style: none; padding: 0; margin: 0; background: var(--surface); border: 1px solid var(--border); border-radius: var(--r-lg); box-shadow: var(--sh-1); overflow: hidden; }
   .doc { display: grid; grid-template-columns: 44px minmax(0, 1fr) auto auto; gap: 16px; align-items: center; padding: 14px 16px; border-bottom: 1px solid var(--border); }
   .doc:last-child { border-bottom: 0; }
+  .doc.empty .d-main, .doc.empty .d-icon { opacity: 0.55; }
+  .needed { margin-top: 16px; }
+  .needed .card-head { margin-bottom: 10px; }
+  .need-list { list-style: none; padding: 0; margin: 0; display: grid; gap: 8px; }
+  .need-list li { display: grid; grid-template-columns: 20px 1fr auto; gap: 10px; align-items: center; padding: 10px 12px; border-radius: var(--r-md); background: var(--surface-sunken); }
+  .need-list li > :global(.icon) { color: var(--success); }
+  .need-list span { display: grid; font-size: var(--fs-ui); }
+  .need-list small { font-size: 12px; color: var(--text-3); }
+  .prov { display: flex; gap: 8px; align-items: flex-start; margin-top: 12px; font-size: 13px; color: var(--text-2); }
+  .prov :global(.icon) { color: var(--accent); flex: none; margin-top: 2px; }
   .d-icon { display: grid; place-items: center; width: 44px; height: 44px; border-radius: var(--r-md); background: var(--surface-sunken); color: var(--text-2); }
   .d-main { display: grid; gap: 2px; min-width: 0; }
   .d-name { font-size: 12.5px; color: var(--text-3); overflow-wrap: anywhere; }
