@@ -12,7 +12,7 @@
   let input: HTMLInputElement;
 
   const PROMPT =
-    'XML, all fields: Trades (Executions + Closed Lots), Open Positions (Lot), Cash Transactions, Prior Period Positions, Statement of Funds, Account Information, Financial Instrument Information';
+    'Name IndiaTax, XML, all fields: Trades (Execution, Closed Lots), Open Positions (Lot), Cash Transactions, Prior Period Positions, Statement of Funds, Account Information, Financial Instrument Info';
 
   const RATES = [
     { v: 0, l: 'No tax (income below exemption)' },
@@ -143,7 +143,7 @@
         <Icon name="warn" />
         <div>
           <b>Then click Edit Manually: rename the query and press Select All in every section.</b>
-          <p>Set <b>Query Name</b> to letters and numbers only (e.g. IndiaTax) — IBKR rejects the AI's commas and “&amp;”. Select All adds <b>Open Date Time</b>, each lot's purchase date, which the AI leaves out. Also check: format XML, Trades with Closed Lots, Open Positions at Lot level.</p>
+          <p>Check <b>Query Name</b> is IndiaTax; if the AI chose a name with commas or “&amp;”, change it — IBKR rejects those. Select All adds <b>Open Date Time</b>, each lot's purchase date, which the AI leaves out. Also check: format XML, Trades with Closed Lots, Open Positions at Lot level.</p>
         </div>
       </div>
     </details>

@@ -4,7 +4,7 @@ import Icon from '../../components/Icon.astro';
 
 const base = import.meta.env.BASE_URL.replace(/\/?$/, '/');
 const prompt =
-  'XML, all fields: Trades (Executions + Closed Lots), Open Positions (Lot), Cash Transactions, Prior Period Positions, Statement of Funds, Account Information, Financial Instrument Information';
+  'Name IndiaTax, XML, all fields: Trades (Execution, Closed Lots), Open Positions (Lot), Cash Transactions, Prior Period Positions, Statement of Funds, Account Information, Financial Instrument Info';
 const sections = [
   { name: 'Trades', options: 'Executions + Closed Lots', why: 'Every sale with the exact lot it closed: acquisition date and cost.', req: true },
   { name: 'Open Positions', options: 'Lot (not Summary only)', why: 'One row per purchase lot with its open date — Schedule FA A3 needs one row per lot.', req: true },
@@ -75,7 +75,7 @@ const toc = [
           <b>Click Edit Manually: rename the query and select all fields</b>
           <p>Required. Even when asked for all fields, the AI usually keeps a short default list — without <b>Open Date Time</b> (each lot's purchase date) or <b>Conid</b>. In the editor:</p>
           <ul class="edit-list">
-            <li>Change <b>Query Name</b> to letters and numbers only, for example <code>IndiaTax</code>. The AI's name usually contains commas or “&amp;”, which IBKR rejects with <code>NAME_INVALID_CHARS</code>.</li>
+            <li>Check <b>Query Name</b> is <code>IndiaTax</code>. If the AI made up its own name with commas or “&amp;”, change it — IBKR rejects those with <code>NAME_INVALID_CHARS</code>.</li>
             <li>Open each section, press <b>Select All</b>, and save the section.</li>
           </ul>
           <div class="kv check-kv">
