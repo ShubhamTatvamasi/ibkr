@@ -28,11 +28,10 @@
 
   function deadline(ay: number): { text: string; tone: 'accent' | 'warn' | 'danger' | 'neutral' } {
     const due = `${ay}-07-31`;
-    const belated = `${ay}-12-31`;
-    const revised = `${ay + 1}-03-31`;
+    // Finance Act 2021: both belated (s.139(4)) and revised (s.139(5)) returns run to 31 Dec of the assessment year.
+    const last = `${ay}-12-31`;
     if (today <= due) return { text: `Due ${date(due)}`, tone: 'accent' };
-    if (today <= belated) return { text: `Belated filing until ${date(belated)}`, tone: 'warn' };
-    if (today <= revised) return { text: `Revise until ${date(revised)}`, tone: 'warn' };
+    if (today <= last) return { text: `Belated or revised filing until ${date(last)}`, tone: 'warn' };
     return { text: 'Closed — updated return only', tone: 'neutral' };
   }
 

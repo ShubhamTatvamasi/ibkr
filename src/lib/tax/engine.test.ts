@@ -133,6 +133,37 @@ describe('foreign income schedules (sample)', () => {
   });
 });
 
+describe('Form 44 accountant verification (new Act)', () => {
+  const fx = load().fx;
+
+  function newActData() {
+    // FY 2026-27: a $50,000 dividend with 25% US withholding = $12,500 tax ≈ ₹10.5 lakh.
+    const xml = `<FlexQueryResponse type="AF"><FlexStatements><FlexStatement accountId="U1" fromDate="20260401" toDate="20270331">
+      <AccountInformation accountId="U1" currency="USD" name="T" dateOpened="20200101" dateFunded="20200101" ibEntity="IBLLC-US" />
+      <SecuritiesInfo><SecurityInfo assetCategory="STK" subCategory="COMMON" symbol="AAPL" description="APPLE INC" conid="1" isin="US0378331005" issuerCountryCode="US" currency="USD" /></SecuritiesInfo>
+      <CashTransactions>
+        <CashTransaction accountId="U1" currency="USD" assetCategory="STK" symbol="AAPL" description="AAPL(US0378331005) Cash Dividend USD 50 per Share" conid="1" isin="US0378331005" issuerCountryCode="US" dateTime="20260615;202000" settleDate="20260615" amount="50000" type="Dividends" transactionID="1" levelOfDetail="DETAIL" />
+        <CashTransaction accountId="U1" currency="USD" assetCategory="STK" symbol="AAPL" description="AAPL(US0378331005) Cash Dividend USD 50 per Share - US Tax" conid="1" isin="US0378331005" issuerCountryCode="US" dateTime="20260615;202000" settleDate="20260615" amount="-12500" type="Withholding Tax" transactionID="2" levelOfDetail="DETAIL" />
+      </CashTransactions>
+    </FlexStatement></FlexStatements></FlexQueryResponse>`;
+    return parseFlexXml(xml, 'new.xml');
+  }
+
+  it('warns when foreign tax paid is ₹1 lakh or more under the new Act', () => {
+    const r = buildReport(newActData(), accountsIn(newActData())[0], 2027, DEFAULT_SETTINGS, fx);
+    const msg = r.warnings.find((w) => w.message.includes('accountant'));
+    expect(r.year.newAct).toBe(true);
+    expect(r.foreign.totals.taxPaidInr.gte(100_000)).toBe(true);
+    expect(msg?.message).toContain('Form 44');
+    expect(msg?.message).toContain('Rule 76(16)');
+  });
+
+  it('does not warn under the old Act', () => {
+    const r = buildReport(newActData(), accountsIn(newActData())[0], 2026, DEFAULT_SETTINGS, fx);
+    expect(r.warnings.some((w) => w.message.includes('accountant'))).toBe(false);
+  });
+});
+
 describe('exports built by IBKR "Configure with AI" (default field subsets)', () => {
   const STRIP = ['conid', 'isin', 'levelOfDetail', 'issuerCountryCode', 'transactionID', 'tradeID', 'description', 'reportDate'];
   const strip = (xml: string, extra: string[] = []) =>

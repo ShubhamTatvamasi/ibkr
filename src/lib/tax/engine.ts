@@ -158,6 +158,9 @@ export function buildReport(data: FlexData, account: Account, ayStart: number, s
   const inc = income(data, account, ty, settings, fx, log, periods.fy.inProgress ? periods.fy.needTo : undefined);
   const ins = insights(data, account, ty, fa, fx, log);
   const foreign = foreignIncome(data, cg, inc, settings);
+  if (ty.newAct && foreign.totals.taxPaidInr.gte(100_000)) {
+    log.add('warn', ty.law.ftcForm, `Foreign tax paid is ₹1 lakh or more, so ${ty.law.ftcForm} must be verified by an accountant (Rule 76(16)).`);
+  }
   if (settings.residency !== 'ROR') {
     log.add('info', 'Schedule FA', `Schedule FA applies only to residents who are ordinarily resident; as ${settings.residency === 'RNOR' ? 'RNOR' : 'a non-resident'} you do not fill it. The FA figures are shown for reference.`);
   }

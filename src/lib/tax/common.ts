@@ -17,8 +17,10 @@ export interface Settings {
 }
 
 export const DEFAULT_SETTINGS: Settings = {
-  cgFxMethod: 'split',
-  faIncomeRate: 'txn',
+  // Rule 115/206 specifies one date (last day of the month before the sale) for the whole gain.
+  cgFxMethod: 'gain',
+  // CBDT filing instructions convert Schedule FA income at the 31 December rate.
+  faIncomeRate: 'cyEnd',
   interestRate: 'fyEnd',
   marginalRatePct: 31.2,
   residency: 'ROR',

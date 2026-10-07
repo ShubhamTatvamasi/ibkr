@@ -58,7 +58,7 @@ tax is ₹1 lakh or more), section 197.
 | Dividends | last day of the month before the month of payment |
 | Broker interest | 31 March (setting: month-end before each credit) |
 | Foreign tax withheld | last day of the month before the month of deduction |
-| Schedule FA | acquisition date (initial), each day (peak), 31 December (closing); income/proceeds on the transaction date (setting: 31 December) |
+| Schedule FA | acquisition date (initial), each day (peak), 31 December (closing); income/proceeds on 31 December (setting: transaction date) |
 
 If SBI published nothing on a date, the latest earlier card is used; gaps over 7 days are flagged.
 

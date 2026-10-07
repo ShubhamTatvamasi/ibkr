@@ -110,7 +110,7 @@ const rates = [
     <div class="rule-list">
       <div class="rule"><Icon name="pie" /><div><b>Lowest of three</b><p>Per country and income: tax paid abroad, Indian tax on that income at your marginal rate, and the treaty rate — 25% on dividends (Article 10), 15% on interest (Article 11).</p></div></div>
       <div class="rule"><Icon name="warn" /><div><b>Withheld more than 25%?</b><p>Your W-8BEN with IBKR has likely lapsed. The excess can't be credited in India.</p></div></div>
-      <div class="rule"><Icon name="flag" /><div><b>Order matters</b><p>Residents claim treaty relief only through Schedules FSI and TR, and Form 67 (Form 44 from tax year 2026-27) must be filed before the return.</p></div></div>
+      <div class="rule"><Icon name="flag" /><div><b>Order matters</b><p>Residents claim treaty relief only through Schedules FSI and TR, and Form 67 (Form 44 from tax year 2026-27) should be filed before the return — the statutory deadline is the end of the assessment year, but filing first avoids disputes.</p></div></div>
     </div>
   </section>
 
@@ -118,8 +118,8 @@ const rates = [
     <h2><span class="h-icon"><Icon name="exchange" size={18} /></span>Choices you control</h2>
     <p class="sec-lead">Pick one in the Review step, note it for your CA and use it every year.</p>
     <div class="choice-grid">
-      <div class="choice-card"><b>Capital gains conversion</b><ul><li>Sale and cost converted separately <span class="default">default</span></li><li>Dollar gain converted once at the sale-month rate</li></ul></div>
-      <div class="choice-card"><b>Schedule FA income rate</b><ul><li>Each transaction date <span class="default">default</span></li><li>31 December</li></ul></div>
+      <div class="choice-card"><b>Capital gains conversion</b><ul><li>Dollar gain converted once at the sale-month rate <span class="default">default</span></li><li>Sale and cost converted separately</li></ul></div>
+      <div class="choice-card"><b>Schedule FA income rate</b><ul><li>31 December <span class="default">default</span></li><li>Each transaction date</li></ul></div>
       <div class="choice-card"><b>Broker interest rate</b><ul><li>31 March <span class="default">default</span></li><li>Month-end before each credit</li></ul></div>
     </div>
   </section>

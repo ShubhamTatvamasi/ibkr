@@ -23,16 +23,16 @@
       key: 'cgFxMethod' as const,
       title: 'Capital gains: how to convert to rupees',
       options: [
-        { v: 'split', l: 'Convert sale value and cost separately', d: 'Sale at the SBI rate for the month before the sale; cost at the rate for the month before purchase. Common practice; captures the rupee’s fall as part of the gain.' },
-        { v: 'gain', l: 'Convert the dollar gain once', d: 'Gain worked out in dollars, converted at the SBI rate for the month before the sale. A literal reading of the conversion rule.' },
+        { v: 'gain', l: 'Convert the dollar gain once (statutory reading)', d: 'Gain worked out in dollars, converted at the SBI rate for the month before the sale. Rule 115/206 names one date — the month before the transfer — for the whole gain.' },
+        { v: 'split', l: 'Convert sale value and cost separately', d: 'Sale at the SBI rate for the month before the sale; cost at the rate for the month before purchase. A common practitioner reading; captures the rupee’s fall as part of the gain.' },
       ],
     },
     {
       key: 'faIncomeRate' as const,
       title: 'Schedule FA: rate for dividends and sale proceeds',
       options: [
+        { v: 'cyEnd', l: 'Rate on 31 December', d: 'CBDT filing instructions convert Schedule FA income at the 31 December rate.' },
         { v: 'txn', l: 'Rate on each transaction date', d: 'Each credit converted on the day it happened.' },
-        { v: 'cyEnd', l: 'Rate on 31 December', d: 'All amounts converted at the closing date of the calendar year.' },
       ],
     },
     {
