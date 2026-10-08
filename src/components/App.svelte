@@ -8,6 +8,7 @@
   import Insights from './steps/Insights.svelte';
   import Downloads from './steps/Downloads.svelte';
   import { BASE } from '../lib/ui/format';
+  import { BRAND_MARK } from '../lib/ui/brand';
 
   const STEPS: { id: StepId; label: string }[] = [
     { id: 'setup', label: 'Upload statements' },
@@ -47,7 +48,7 @@
 <div class="shell">
   <aside class="sidebar" class:open={menuOpen} aria-label="Navigation">
     <div class="side-head">
-      <a class="brand" href={BASE}><span class="brand-mark">₹</span><span>IBKR India Tax</span></a>
+      <a class="brand" href={BASE}>{@html BRAND_MARK}<span>IBKR India Tax</span></a>
       <button class="btn ghost sm icon-only close" aria-label="Close menu" onclick={() => (menuOpen = false)}><Icon name="x" /></button>
     </div>
 

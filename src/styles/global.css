@@ -295,7 +295,7 @@ table.data tr.detail td { background: var(--surface-sunken); font-size: var(--fs
 
 /* ---------- shared shell bits ---------- */
 .brand { display: flex; align-items: center; gap: 10px; font-weight: 650; color: var(--text); text-decoration: none; letter-spacing: -0.01em; }
-.brand-mark { width: 30px; height: 30px; border-radius: var(--r-sm); background: var(--accent); color: var(--on-accent); display: grid; place-items: center; font-size: 15px; font-weight: 700; }
+.brand-mark { width: 30px; height: 30px; border-radius: var(--r-sm); display: block; flex: none; }
 .overline { font-size: var(--fs-overline); text-transform: uppercase; letter-spacing: 0.06em; font-weight: 600; color: var(--text-3); margin: 0 0 8px; }
 .prompt { background: var(--surface); border: 1px solid var(--border); border-radius: var(--r-lg); padding: 14px 16px; margin: 12px 0; }
 .prompt-head { display: flex; justify-content: space-between; align-items: center; gap: 12px; }
