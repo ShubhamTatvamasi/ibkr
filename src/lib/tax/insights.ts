@@ -5,7 +5,7 @@ import type { Account, FlexData } from '../flex/model';
 import type { Collector, Fx } from './common';
 import { issuerCountry, type Country } from './countries';
 import type { FaResult } from './fa';
-import { heldAt, buildLedger } from './lots';
+import { heldAt, buildLedger, unitCostAt } from './lots';
 import { addDays, addMonths, inRange, type TaxYear } from './years';
 
 /** Non-resident aliens get a $60,000 US estate-tax exemption on US-situs assets. */
@@ -64,7 +64,7 @@ export function insights(data: FlexData, account: Account, ty: TaxYear, fa: FaRe
       const inst = data.instruments.get(lot.conid);
       const country = issuerCountry(inst?.issuerCountryCode, inst?.isin);
       const mark = lot.snapshotMark ?? new Decimal(0);
-      const costForeign = lot.unitCost.mul(qty);
+      const costForeign = unitCostAt(lot, latest).mul(qty);
       const valueForeign = mark.mul(qty);
       const cost = log.convert('Insights', () => fx.on(costForeign, lot.currency, lot.openDate));
       const value = log.convert('Insights', () => fx.on(valueForeign, lot.currency, latest));
@@ -170,7 +170,7 @@ function combinedPeak(data: FlexData, account: Account, ty: TaxYear, fa: FaResul
     let total = new Decimal(0);
     for (const row of fa.a3) {
       const qty = heldAt(row.lot, d);
-      const price = qty.gt(0) ? lastPrice(row.lot.conid, d) ?? row.lot.unitCost : undefined;
+      const price = qty.gt(0) ? lastPrice(row.lot.conid, d) ?? unitCostAt(row.lot, d) : undefined;
       if (!price) continue;
       const conv = log.convert('Insights', () => fx.on(qty.mul(price), row.lot.currency, d));
       if (conv) total = total.add(conv.inr);

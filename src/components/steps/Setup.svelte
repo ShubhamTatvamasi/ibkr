@@ -12,7 +12,7 @@
   let input: HTMLInputElement;
 
   const PROMPT =
-    'Name IndiaTax, XML, all fields: Trades (Execution, Closed Lots), Open Positions (Lot), Cash Transactions, Prior Period Positions, Statement of Funds, Account Information, Financial Instrument Info';
+    'Name IndiaTax, XML, all fields: Trades (Execution, Closed Lots), Open Positions (Lot), Cash Transactions, Prior Period Positions, Statement of Funds, Account Information, Financial Instrument Info, Corporate Actions, Transfers, Change in Dividend Accruals';
 
   const RATES = [
     { v: 0, l: 'No tax (income below exemption)' },
@@ -191,7 +191,7 @@
     </div>
     <a class="guide-cta" href={`${BASE}guide/`}>
       <span class="gc-icon"><Icon name="book" /></span>
-      <span><b>New to Flex Queries? Follow the step-by-step guide</b><small>Name, the 9 sections to tick with Select All, settings, then the two custom-date runs — about 10 minutes, once.</small></span>
+      <span><b>New to Flex Queries? Follow the step-by-step guide</b><small>Name, the 10 sections to tick with Select All, settings, then the two custom-date runs — about 10 minutes, once.</small></span>
       <Icon name="arrow-right" />
     </a>
     <details class="ai">

@@ -11,6 +11,8 @@ import { foreignIncome, type ForeignResult } from './foreign';
 import { aisFigures, type AisFigures } from './ais';
 import type { RateUse } from './common';
 import { addDays, taxYear, type TaxYear } from './years';
+import { splitRatio } from './lots';
+import { applyLotOverrides, lotsToCheck, type LotToCheck } from './lotcheck';
 
 export interface Report {
   year: TaxYear;
@@ -27,6 +29,8 @@ export interface Report {
   foreign: ForeignResult;
   /** Calendar-year figures as the AIS foreign-assets report shows them. */
   ais: AisFigures[];
+  /** Lots without a cost, or dated on a transfer in, for the user to correct. */
+  lotsToCheck: LotToCheck[];
   rates: RateUse[];
   warnings: Warning[];
   missingRates: { currency: string; date: IsoDate }[];
@@ -107,8 +111,10 @@ export function period(cov: { from: IsoDate; to: IsoDate }[], account: Account, 
   return { from, to, needFrom, needTo, inProgress, notApplicable, covered: notApplicable || covers(cov, needFrom, needTo) };
 }
 
-export function buildReport(data: FlexData, account: Account, ayStart: number, settings: Settings, fx: Fx, opts: { today?: IsoDate; combined?: boolean } = {}): Report {
+export function buildReport(raw: FlexData, account: Account, ayStart: number, settings: Settings, fx: Fx, opts: { today?: IsoDate; combined?: boolean } = {}): Report {
   const ty = taxYear(ayStart);
+  const data = applyLotOverrides(raw, settings.lotOverrides ?? {});
+  const toCheck = lotsToCheck(raw, account, ty, settings.lotOverrides ?? {});
   const log = new Collector();
   const today = opts.today ?? new Date().toISOString().slice(0, 10);
   const cov = coverage(data, account.accountId);
@@ -164,9 +170,7 @@ export function buildReport(data: FlexData, account: Account, ayStart: number, s
       `These figures are for ${account.accountId} only. The files also contain ${others.map((a) => a.accountId).join(', ')} — switch account in Upload statements and report it too (amounts add up; one FA A2 row per account).`,
     );
   }
-  for (const ca of data.corporateActions.filter((c) => c.accountId === account.accountId && c.date >= ty.cyStart && c.date <= ty.fyEnd)) {
-    log.add('warn', 'Corporate actions', `${ca.symbol} ${ca.type} on ${ca.date} (${ca.description}). Check the affected lots' quantities and peak values.`);
-  }
+  corporateActionNotes(data, account, ty, log);
 
   const fa = scheduleFA(data, account, ty, settings, fx, log, periods.fa.inProgress ? periods.fa.needTo : undefined);
   const cg = capitalGains(data, account, ty, settings, fx, log);
@@ -183,6 +187,11 @@ export function buildReport(data: FlexData, account: Account, ayStart: number, s
     log.add('warn', 'Schedule FSI', 'Taxpayer Identification Number is empty. Use your US TIN if you have one, otherwise your passport number (as the official guide allows).');
   }
 
+  const missingCost = toCheck.filter((l) => l.reason === 'zero-cost' && !l.override?.unitCost);
+  if (missingCost.length) {
+    log.add('error', 'Cost basis', `IBKR has no cost for ${[...new Set(missingCost.map((l) => l.symbol))].join(', ')} (usually shares transferred in). Without it the whole sale value counts as gain and the initial value in Schedule FA is zero — enter the cost under “Lots to check”.`);
+  }
+
   const order = { error: 0, warn: 1, info: 2 };
   return {
     year: ty,
@@ -196,6 +205,7 @@ export function buildReport(data: FlexData, account: Account, ayStart: number, s
     insights: ins,
     foreign,
     ais: [aisFigures(data, account, ty, fa)],
+    lotsToCheck: toCheck,
     rates: [...log.rates.values()].sort((a, b) => a.currency.localeCompare(b.currency) || a.requestedDate.localeCompare(b.requestedDate)),
     warnings: [...log.warnings].sort((a, b) => order[a.level] - order[b.level]),
     missingRates: [...log.missingRates.values()].sort((a, b) => a.date.localeCompare(b.date)),
@@ -203,6 +213,56 @@ export function buildReport(data: FlexData, account: Account, ayStart: number, s
     periods,
     summary: summarise(cg, inc, foreign, fa),
   };
+}
+
+const CA_NOTES: Record<string, string> = {
+  SO: 'Spin-off: the new shares need a cost (usually the issuer\'s allocation on Form 8937) and keep the parent\'s purchase date. Indian law has no specific rule for foreign spin-offs — agree the treatment with your CA.',
+  TC: 'Merger: a share-for-share exchange of a foreign company is generally a transfer for Indian tax (no exemption unless the acquirer is Indian). Cash received is a sale. Check with your CA.',
+  TI: 'Tender: shares tendered for cash are a sale for capital gains.',
+  SD: 'Stock dividend: the new shares are like bonus shares — cost nil and held from the allotment date.',
+  DW: 'Delisted as worthless: claim the loss only when the shares are actually transferred or extinguished.',
+  CD: 'Cash dividend paid through a corporate action: check it appears under dividends.',
+  BM: 'Bond maturity: not computed by this tool.',
+  TM: 'Treasury bill maturity: not computed by this tool.',
+};
+
+function corporateActionNotes(data: FlexData, account: Account, ty: TaxYear, log: Collector) {
+  const area = 'Corporate actions';
+  for (const ca of data.corporateActions.filter((c) => c.accountId === account.accountId && c.date >= ty.cyStart && c.date <= ty.fyEnd)) {
+    const ratio = splitRatio(ca);
+    if (ratio) {
+      const r = ratio.gte(1) ? `${ratio.toString()}-for-1` : `1-for-${new Decimal(1).div(ratio).toDecimalPlaces(4).toString()}`;
+      log.add('info', area, `${ca.symbol}: ${r} split on ${formatDate(ca.date)} applied — quantities before that date are in pre-split shares, and the purchase date and total cost carry over.`);
+      if (ca.type === 'RS') log.add('warn', area, `${ca.symbol}: after a reverse split IBKR may issue a new contract ID. If the shares show up as a new lot dated ${formatDate(ca.date)}, correct its purchase date and cost in Review issues.`);
+    } else if (/^(FS|RS)$/.test(ca.type)) {
+      log.add('warn', area, `${ca.symbol} split on ${formatDate(ca.date)}, but the ratio could not be read from “${ca.description}”. Check the quantities and peak values for this holding.`);
+    } else {
+      log.add('warn', area, `${ca.symbol} on ${formatDate(ca.date)}: ${ca.description}. ${CA_NOTES[ca.type] ?? 'Check the affected lots\' quantities, cost and peak values.'}`);
+    }
+  }
+  if (!data.sections.has('CorporateActions')) {
+    // Without the section a split shows up only as a price jump in the daily prices.
+    const series = new Map<string, { date: IsoDate; price: Decimal }[]>();
+    for (const p of data.prices) if (p.accountId === account.accountId && p.date >= ty.cyStart && p.date <= ty.fyEnd) series.set(p.conid, [...(series.get(p.conid) ?? []), p]);
+    for (const [conid, list] of series) {
+      list.sort((a, b) => a.date.localeCompare(b.date));
+      for (let i = 1; i < list.length; i++) {
+        const r = list[i].price.div(list[i - 1].price);
+        if (r.lte(0.55) || r.gte(1.9)) {
+          const sym = data.instruments.get(conid)?.symbol ?? conid;
+          log.add('warn', area, `${sym}'s price moved from ${list[i - 1].price.toFixed(2)} to ${list[i].price.toFixed(2)} on ${formatDate(list[i].date)} — possibly a split. Add the “Corporate Actions” section to your Flex Query so it can be applied.`);
+          break;
+        }
+      }
+    }
+  }
+  for (const t of data.transfers.filter((x) => x.accountId === account.accountId && x.date >= ty.cyStart && x.date <= ty.fyEnd)) {
+    if (t.direction === 'OUT') {
+      log.add('warn', 'Transfers', `${t.quantity.toString()} ${t.symbol} transferred out on ${formatDate(t.date)}. They were held until then, so they still belong in Schedule FA A3 for calendar ${t.date.slice(0, 4)} — add them from the receiving broker's records. A transfer between your own accounts is not a sale.`);
+    } else {
+      log.add('info', 'Transfers', `${t.quantity.toString()} ${t.symbol} transferred in on ${formatDate(t.date)}. Check the purchase date and cost of those lots in Review issues — for RSUs the cost is the market value taxed as salary on vesting (Form 16).`);
+    }
+  }
 }
 
 function summarise(cg: CgResult, inc: IncomeResult, foreign: ForeignResult, fa: FaResult): Report['summary'] {
@@ -339,6 +399,7 @@ export function buildCombinedReport(data: FlexData, accounts: Account[], ayStart
     insights,
     foreign,
     ais: parts.flatMap((p) => p.ais),
+    lotsToCheck: parts.flatMap((p) => p.lotsToCheck),
     rates: [...rates.values()].sort((a, b) => a.currency.localeCompare(b.currency) || a.requestedDate.localeCompare(b.requestedDate)),
     warnings,
     missingRates: [...missing.values()].sort((a, b) => a.date.localeCompare(b.date)),
@@ -408,6 +469,7 @@ const SPEC: { section: string; label: string; required: boolean; purpose: string
   { section: 'CashReport', label: 'Cash Report', required: false, purpose: 'Opening and closing cash', critical: [], recommended: [], fallbackFor: 'StmtFunds' },
   { section: 'ChangeInDividendAccruals', label: 'Change in Dividend Accruals', required: false, purpose: 'Ex-dates for dividend matching', critical: [], recommended: [] },
   { section: 'CorporateActions', label: 'Corporate Actions', required: false, purpose: 'Splits and mergers', critical: [], recommended: [] },
+  { section: 'Transfers', label: 'Transfers', required: false, purpose: 'Shares moved in or out of the account', critical: [], recommended: [] },
 ];
 
 /** Which Flex Query sections and fields were found across the uploaded files, and what each one unlocks. */

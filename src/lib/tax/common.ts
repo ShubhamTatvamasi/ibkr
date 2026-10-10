@@ -14,7 +14,19 @@ export interface Settings {
   residency: 'ROR' | 'RNOR' | 'NR';
   /** Foreign taxpayer identification number for Schedule FSI/TR and Form 67 (passport number if none was allotted). */
   tin: string;
+  /** Corrections for lots IBKR has without a proper purchase date or cost (transfers in, RSUs), by lotKey. */
+  lotOverrides: Record<string, LotOverride>;
 }
+
+export interface LotOverride {
+  /** Original acquisition date (e.g. RSU vesting date), YYYY-MM-DD. */
+  openDate?: string;
+  /** Cost per share in the lot's currency, in the shares as held now. */
+  unitCost?: string;
+}
+
+/** Identifies a purchase lot across files and years. */
+export const lotKey = (accountId: string, conid: string, openDateTime: string) => `${accountId}|${conid}|${openDateTime}`;
 
 export const DEFAULT_SETTINGS: Settings = {
   // Rule 115/206 specifies one date (last day of the month before the sale) for the whole gain.
@@ -25,6 +37,7 @@ export const DEFAULT_SETTINGS: Settings = {
   marginalRatePct: 31.2,
   residency: 'ROR',
   tin: '',
+  lotOverrides: {},
 };
 
 export type Level = 'error' | 'warn' | 'info';

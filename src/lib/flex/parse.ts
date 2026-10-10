@@ -84,6 +84,7 @@ export function emptyFlexData(): FlexData {
     funds: [],
     cashReports: [],
     corporateActions: [],
+    transfers: [],
     dividendAccruals: [],
     unsupportedTrades: [],
     sections: new Set(),
@@ -255,6 +256,25 @@ function parseStatement(st: Node, fileName: string, d: FlexData) {
             symbol: a.symbol,
             date,
             type: a.type ?? '',
+            description: a.description ?? a.actionDescription ?? '',
+            quantity: dec(a.quantity),
+          });
+        }
+        break;
+      case 'Transfers':
+        for (const { attrs: a } of section.children) {
+          if (!EQUITY.has(a.assetCategory)) continue;
+          const date = toIsoDate(a.date) ?? toIsoDate(a.dateTime) ?? toIsoDate(a.reportDate);
+          if (!date || !once(`tf|${a.accountId}|${a.transactionID ?? `${a.conid}|${date}|${a.quantity}|${a.direction}`}`)) continue;
+          const qty = dec(a.quantity);
+          d.transfers.push({
+            accountId: a.accountId ?? accountId,
+            conid: a.conid,
+            symbol: a.symbol,
+            date,
+            type: a.type ?? '',
+            direction: (a.direction ?? '').toUpperCase() === 'OUT' || qty.lt(0) ? 'OUT' : 'IN',
+            quantity: qty.abs(),
             description: a.description ?? '',
           });
         }
@@ -292,6 +312,7 @@ function resolveSymbolIds(d: FlexData) {
   for (const r of d.prices) r.conid = fix(r.conid)!;
   for (const r of d.cash) r.conid = fix(r.conid);
   for (const r of d.corporateActions) r.conid = fix(r.conid)!;
+  for (const r of d.transfers) r.conid = fix(r.conid)!;
   for (const r of d.dividendAccruals) r.conid = fix(r.conid)!;
   for (const [id, inst] of [...d.instruments]) {
     const to = real.get(id);

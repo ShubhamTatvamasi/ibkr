@@ -25,12 +25,13 @@ const PICK = [
   { name: 'Account Information', req: false, options: null, why: 'Account number and opening date for Schedule FA A2.' },
   { name: 'Cash Transactions', req: true, options: 'Keep the defaults — every transaction type and Detail ticked, Summary unticked.', why: 'Dividends, interest and US tax withheld.' },
   { name: 'Change in Dividend Accruals', req: false, options: 'Detail.', why: 'Ex-dates, so each dividend is credited to the lots that earned it.' },
-  { name: 'Corporate Actions', req: false, options: 'Detail.', why: 'Splits and mergers are flagged for review.' },
+  { name: 'Corporate Actions', req: false, options: 'Detail.', why: 'Splits are applied to your lots; mergers and spin-offs are flagged for review.' },
   { name: 'Financial Instrument Information', req: false, options: null, why: 'Company names, ISIN, issuer country, ETF flag.' },
   { name: 'Open Positions', req: true, options: 'Lot (not Summary).', why: 'One row per purchase lot with its Open Date Time — Schedule FA A3.' },
   { name: 'Prior Period Positions', req: false, options: null, why: 'Daily price of each holding — exact peak values.' },
   { name: 'Statement of Funds', req: false, options: 'Leave the default (Base Currency Summary).', why: 'Daily cash balance — the Schedule FA A2 peak.' },
   { name: 'Trades', req: true, options: 'Executions and Closed Lots (both).', why: 'Every sale and the exact lot it closed — capital gains.' },
+  { name: 'Transfers', req: false, options: null, why: 'Shares moved in or out (ACATS, RSUs) — so their purchase date and cost can be checked.' },
 ];
 const order = new Map(PICK.map((p, i) => [p.name, i + 1]));
 
@@ -80,7 +81,7 @@ const toc = [
   </p>
   <div class="facts">
     <span class="fact"><Icon name="clock" size={16} /><span><b>10 minutes</b>, once</span></span>
-    <span class="fact"><Icon name="check-circle" size={16} /><span><b>9 sections</b>, Select All in each</span></span>
+    <span class="fact"><Icon name="check-circle" size={16} /><span><b>10 sections</b>, Select All in each</span></span>
     <span class="fact"><Icon name="calendar" size={16} /><span><b>2 runs</b> per return</span></span>
   </div>
 
@@ -100,13 +101,13 @@ const toc = [
   </section>
 
   <section id="sections">
-    <h2><span class="h-num">3</span>Sections — click these nine, in order</h2>
+    <h2><span class="h-num">3</span>Sections — click these ten, in order</h2>
     <p class="sec-lead">
       Each click opens a pop-up. In every pop-up: set the <b>options</b> shown below, press <b>Select All</b> for the fields, then <b>Save</b>.
       Select All matters — it brings in <b>Open Date Time</b> and <b>Conid</b>, which the default field list leaves out.
     </p>
 
-    <figure class="form-map" aria-label="IBKR Sections grid with the nine sections to select numbered">
+    <figure class="form-map" aria-label="IBKR Sections grid with the ten sections to select numbered">
       <figcaption><Icon name="eye" size={16} />Where they are in IBKR's Sections grid</figcaption>
       <div class="map-cols">
         {[LEFT, RIGHT].map((col) => (

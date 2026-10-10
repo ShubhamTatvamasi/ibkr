@@ -315,3 +315,31 @@ describe('several IBKR accounts in one return', () => {
     expect(both.warnings.some((w) => w.area.startsWith('Accounts'))).toBe(false);
   });
 });
+
+describe('lots without cost (transfers in, RSUs)', () => {
+  const { data, fx } = load();
+  const account = accountsIn(data)[0];
+  const sold = data.closedLots.find((c) => c.accountId === account.accountId && c.closeDate >= '2025-04-01' && c.closeDate <= '2026-03-31')!;
+  data.closedLots = data.closedLots.map((c) => (c === sold ? { ...c, cost: new Decimal(0) } : c));
+  const today = { today: '2026-10-10' };
+
+  it('flags the lot and blocks with a cost-basis error', () => {
+    const r = buildReport(data, account, 2026, DEFAULT_SETTINGS, fx, today);
+    const l = r.lotsToCheck.find((x) => x.conid === sold.conid && x.openDateTime === sold.openDateTime)!;
+    expect(l.reason).toBe('zero-cost');
+    expect(r.warnings.some((w) => w.level === 'error' && w.area === 'Cost basis')).toBe(true);
+  });
+
+  it('uses the corrected date and cost', async () => {
+    const { lotKey } = await import('./common');
+    const key = lotKey(account.accountId, sold.conid, sold.openDateTime);
+    const unit = sold.proceeds.div(sold.quantity).toFixed(4); // cost = sale price → gain ≈ minus commission
+    const settings = { ...DEFAULT_SETTINGS, lotOverrides: { [key]: { unitCost: unit, openDate: '2020-01-02' } } };
+    const r = buildReport(data, account, 2026, settings, fx, today);
+    const row = r.cg.rows.find((x) => x.lot.conid === sold.conid && x.lot.openDateTime === sold.openDateTime)!;
+    expect(row.lot.openDate).toBe('2020-01-02');
+    expect(row.term).toBe('LTCG');
+    expect(row.gainForeign.abs().lte(sold.commission.add(0.01))).toBe(true);
+    expect(r.warnings.some((w) => w.area === 'Cost basis')).toBe(false);
+  });
+});

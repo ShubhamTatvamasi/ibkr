@@ -3,7 +3,7 @@ import type { IsoDate } from '../dates';
 import type { Account, FlexData } from '../flex/model';
 import { type Collector, type Conversion, type Fx, type Settings } from './common';
 import { country, issuerCountry, type Country } from './countries';
-import { buildLedger, heldAt, type Lot } from './lots';
+import { buildLedger, heldAt, unitCostAt, type Lot } from './lots';
 import { addDays, inRange, type TaxYear } from './years';
 
 export interface FaA3Row {
@@ -98,12 +98,13 @@ export function scheduleFA(data: FlexData, account: Account, ty: TaxYear, settin
     const ctry = issuerCountry(inst?.issuerCountryCode, inst?.isin);
     const qtyEnd = heldAt(lot, closeDate);
 
-    const initial = log.convert(area, () => fx.on(lot.unitCost.mul(qtyStart), lot.currency, lot.openDate));
+    const startDate = lot.openDate >= cyStart ? lot.openDate : addDays(cyStart, -1);
+    const initial = log.convert(area, () => fx.on(unitCostAt(lot, startDate).mul(qtyStart), lot.currency, lot.openDate));
 
     // Peak: max over days of qty held × price × that day's TTBR (the INR series, not the USD one).
     const series = prices.get(lot.conid) ?? [];
     const candidates: { date: IsoDate; price: Decimal }[] = series.filter((p) => inRange(p.date, cyStart, closeDate));
-    if (lot.openDate >= cyStart) candidates.push({ date: lot.openDate, price: lot.unitCost });
+    if (lot.openDate >= cyStart) candidates.push({ date: lot.openDate, price: unitCostAt(lot, lot.openDate) });
     for (const c of soldInYear) candidates.push({ date: c.closeDate, price: c.proceeds.div(c.quantity) });
     const closingPrice = priceAt(series, closeDate) ?? (ledger.snapshotDate === closeDate ? lot.snapshotMark : undefined);
     if (closingPrice) candidates.push({ date: closeDate, price: closingPrice });

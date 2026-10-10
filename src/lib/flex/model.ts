@@ -121,7 +121,22 @@ export interface CorporateAction {
   conid: string;
   symbol: string;
   date: IsoDate;
+  /** IBKR code: FS forward split, RS reverse split, SO spin-off, TC merger, SD stock dividend, … */
   type: string;
+  description: string;
+  /** Shares added (+) or removed (−) by the action. */
+  quantity: Decimal;
+}
+
+/** A position moved into or out of the account without a trade (ACATS, FOP, internal). */
+export interface Transfer {
+  accountId: string;
+  conid: string;
+  symbol: string;
+  date: IsoDate;
+  type: string;
+  direction: 'IN' | 'OUT';
+  quantity: Decimal;
   description: string;
 }
 
@@ -143,6 +158,7 @@ export interface FlexData {
   funds: FundsLine[];
   cashReports: CashReportRow[];
   corporateActions: CorporateAction[];
+  transfers: Transfer[];
   dividendAccruals: DividendAccrual[];
   /** Trades in asset classes we don't compute (options, futures, forex…), for warnings. */
   unsupportedTrades: { symbol: string; assetCategory: string; date: IsoDate }[];

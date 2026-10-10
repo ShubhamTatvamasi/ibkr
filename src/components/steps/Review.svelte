@@ -1,7 +1,8 @@
 <script lang="ts">
   import Icon from '../ui/Icon.svelte';
   import { app } from '../state.svelte';
-  import { BASE, date } from '../../lib/ui/format';
+  import { BASE, date, money, num } from '../../lib/ui/format';
+  import type { LotOverride } from '../../lib/tax/common';
   import { entityFor } from '../../lib/assets';
   import { quotedPer } from '../../lib/tax/fx';
 
@@ -17,6 +18,15 @@
     })),
   );
   const needsInput = $derived(app.needsInput);
+  const multi = $derived(r.accounts.length > 1);
+
+  function setLot(key: string, field: keyof LotOverride, value: string) {
+    const next = { ...app.settings.lotOverrides[key], [field]: value.trim() || undefined };
+    const all = { ...app.settings.lotOverrides };
+    if (next.openDate || next.unitCost) all[key] = next;
+    else delete all[key];
+    app.settings.lotOverrides = all;
+  }
   const blocking = $derived(app.mustFix);
 
   const CHOICES = [
@@ -124,6 +134,39 @@
   </section>
 {/if}
 
+{#if r.lotsToCheck.length}
+  <section class="group" id="lots">
+    <h2 class="g-title" class:warn={r.lotsToCheck.some((l) => l.reason === 'zero-cost' && !l.override?.unitCost)}><Icon name="receipt" />Lots to check</h2>
+    <p class="muted g-sub">
+      IBKR may not know the real purchase date or cost of shares transferred in from another broker or vested as RSUs. Enter the original
+      date and the cost per share (for RSUs, the market value taxed as salary on vesting, from Form 16 — in today's shares, after any split).
+      Leave a field empty to keep IBKR's value. Saved in this browser.
+    </p>
+    <div class="table-wrap lots">
+      <table class="data">
+        <thead><tr><th>Lot</th><th class="r">Shares</th><th>IBKR says</th><th>Purchase date</th><th>Cost per share</th></tr></thead>
+        <tbody>
+          {#each r.lotsToCheck as l (l.key)}
+            <tr>
+              <td>
+                <span class="sym">{l.symbol}</span>
+                <span class="badge {l.reason === 'zero-cost' && !l.override?.unitCost ? 'danger' : l.override ? 'success' : 'warn'}">
+                  {l.override ? 'Corrected' : l.reason === 'zero-cost' ? 'No cost' : 'Transferred in'}
+                </span>
+                {#if multi}<span class="sub">{l.accountId}</span>{/if}
+              </td>
+              <td class="r">{num(l.quantity)}</td>
+              <td><span class="sub">bought {date(l.openDate)}</span><span class="sub">{money(l.unitCost, l.currency)} per share</span></td>
+              <td class="in"><input type="date" aria-label={`${l.symbol} original purchase date`} value={l.override?.openDate ?? ''} max={l.openDate} onchange={(e) => setLot(l.key, 'openDate', e.currentTarget.value)} /></td>
+              <td class="in"><input type="text" inputmode="decimal" aria-label={`${l.symbol} cost per share in ${l.currency}`} placeholder={l.currency} value={l.override?.unitCost ?? ''} onchange={(e) => setLot(l.key, 'unitCost', e.currentTarget.value.replace(/,/g, ''))} /></td>
+            </tr>
+          {/each}
+        </tbody>
+      </table>
+    </div>
+  </section>
+{/if}
+
 <section class="group" id="companies">
   <h2 class="g-title" class:warn={app.missingAddresses.length}><Icon name="building" />Companies and funds</h2>
   <p class="muted g-sub">
@@ -212,6 +255,10 @@
   .issue p a { color: var(--accent); }
   .rate-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: 10px; margin-top: 6px; }
   .narrow { max-width: 360px; margin-top: 6px; }
+  .lots { max-height: none; }
+  .lots td.in { width: 170px; }
+  .lots td.in input { height: 34px; }
+  .lots .badge { margin-left: 6px; }
   .addr { display: grid; gap: 8px; }
   .addr-row { display: grid; grid-template-columns: 150px 1fr 1.4fr 100px; gap: 8px; align-items: center; }
   .addr-row.head { font-size: var(--fs-caption); color: var(--text-3); font-weight: 600; }
