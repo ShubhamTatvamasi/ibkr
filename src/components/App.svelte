@@ -160,7 +160,7 @@
     font: 500 var(--fs-ui) / 1.3 var(--font-sans); color: var(--chrome-text-2); text-align: left; cursor: pointer;
   }
   .step:hover:not(:disabled) { background: var(--chrome-hover); color: var(--chrome-text); }
-  .step.current { background: var(--chrome-2); color: #ffffff; }
+  .step.current { background: var(--chrome-current); color: var(--chrome-current-text); font-weight: 600; }
   .step.current::before { content: ''; position: absolute; left: 0; top: 8px; bottom: 8px; width: 3px; border-radius: 2px; background: var(--accent); }
   .step:disabled { color: var(--chrome-text-3); cursor: not-allowed; }
   .st-icon { display: grid; place-items: center; width: 20px; }
@@ -171,7 +171,7 @@
   .sub { margin: 2px 0 6px 29px; border-left: 1px solid var(--chrome-border); padding-left: 8px; }
   .sub button { width: 100%; text-align: left; border: 0; background: none; padding: 6px 10px; border-radius: var(--r-sm); font: 400 13px/1.3 var(--font-sans); color: var(--chrome-text-2); cursor: pointer; }
   .sub button:hover { background: var(--chrome-hover); color: var(--chrome-text); }
-  .sub button.active { color: #ffffff; background: var(--chrome-2); font-weight: 500; }
+  .sub button.active { color: var(--chrome-current-text); background: var(--chrome-current); font-weight: 500; }
   .side-foot { margin-top: auto; display: grid; gap: 12px; padding: 0 6px; }
   .privacy { display: flex; gap: 8px; align-items: flex-start; font-size: var(--fs-caption); color: var(--chrome-text-2); background: var(--chrome-2); padding: 10px; border-radius: var(--r-md); }
   .privacy :global(.icon) { color: var(--success); }
@@ -180,7 +180,7 @@
   .foot-links a:hover { color: var(--chrome-text); background: var(--chrome-hover); }
 
   .main { min-width: 0; display: flex; flex-direction: column; }
-  .topbar { position: sticky; top: 0; z-index: 10; display: flex; align-items: center; gap: 12px; height: 56px; padding: 0 32px; background: var(--chrome); border-bottom: 1px solid var(--chrome-border); }
+  .topbar { position: sticky; top: 0; z-index: 10; display: flex; align-items: center; gap: 12px; height: 56px; padding: 0 32px; background: color-mix(in srgb, var(--chrome) 86%, transparent); backdrop-filter: saturate(1.4) blur(10px); -webkit-backdrop-filter: saturate(1.4) blur(10px); border-bottom: 1px solid var(--chrome-border); }
   .topbar :global(.btn.ghost) { color: var(--chrome-text-2); }
   .topbar :global(.btn.ghost:hover) { background: var(--chrome-hover); color: var(--chrome-text); }
   .menu-btn { display: none; }

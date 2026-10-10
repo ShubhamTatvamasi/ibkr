@@ -19,8 +19,8 @@
   period={`FY ${date(ty.fyStart)} – ${date(ty.fyEnd)}`}
   {ids}
 >
-  <div class="callout danger">
-    <Icon name="error" />
+  <div class="callout accent">
+    <Icon name="info" />
     <div>
       <b>File this before the ITR.</b>
       <p>The foreign tax credit in Schedule TR is allowed only if {ty.law.ftcForm} is on record. Select the assessment year, click “Let's Get Started”, fill Part A, Part B, Verification and Attachments, then e-verify.{ty.newAct ? ' Form 44 must be verified by an accountant if foreign tax paid is ₹1 lakh or more.' : ''}</p>

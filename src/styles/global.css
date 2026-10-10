@@ -1,45 +1,50 @@
-/* Design tokens — IBKR-inspired: vivid red accent, deep navy chrome, crisp near-square corners.
-   Contrast-checked to WCAG AA in both themes. */
+/* Design tokens — bright and calm: white chrome with hairline borders, one blue accent taken
+   from the brand mark, saffron reserved for the mark itself. Contrast-checked to WCAG AA in both themes. */
 :root {
-  --bg: #f4f6f9;
+  --bg: #f7f8fa;
   --surface: #ffffff;
   --surface-raised: #ffffff;
-  --surface-sunken: #eef1f6;
-  --surface-hover: #f1f4f8;
-  --border: #dde3ec;
-  --border-strong: #7c8798;
-  --text: #0e1a2b;
-  --text-2: #4a5568;
-  --text-3: #667085;
-  --accent: #d81222;
-  --accent-hover: #b00e1b;
-  --accent-soft: #fdecee;
-  --accent-soft-text: #b00e1b;
-  --accent-line: #f6c3c8;
+  --surface-sunken: #f2f4f7;
+  --surface-hover: #f4f6f9;
+  --border: #e4e7ec;
+  --border-strong: #8b95a7;
+  --border-control: #d0d5dd;
+  --text: #101828;
+  --text-2: #475467;
+  --text-3: #636c7e;
+  --accent: #1d5bb8;
+  --accent-hover: #174a96;
+  --accent-soft: #edf3fc;
+  --accent-soft-text: #174a96;
+  --accent-line: #c7d8f2;
   --on-accent: #ffffff;
-  --success: #1a7f37;
-  --success-soft: #e8f5ec;
-  --success-text: #166a2e;
-  --warn: #9a5b00;
-  --warn-soft: #fff4dc;
-  --warn-text: #8a5100;
-  --danger: #b42318;
-  --danger-soft: #fdecea;
-  --danger-text: #a11f15;
+  --highlight: #f7941d;
+  --success: #17803d;
+  --success-soft: #eaf6ee;
+  --success-text: #146c34;
+  --warn: #a15c00;
+  --warn-soft: #fff5e1;
+  --warn-text: #8a4f00;
+  --danger: #c0262d;
+  --danger-soft: #fdeeee;
+  --danger-text: #a51f25;
   --on-danger: #ffffff;
-  --info: #1d5fc7;
-  --info-soft: #e8f0fd;
-  --info-text: #1a54b0;
-  --focus: #2563eb;
+  --info: #0e7490;
+  --info-soft: #e8f6f9;
+  --info-text: #0b5f76;
+  --focus: #1d5bb8;
 
-  /* Deep navy app chrome (sidebar, top bar) — IBKR's institutional dark. */
-  --chrome: #0e1a2b;
-  --chrome-2: #16263d;
-  --chrome-hover: #1d3252;
-  --chrome-border: #24374f;
-  --chrome-text: #e8edf4;
-  --chrome-text-2: #9fb0c6;
-  --chrome-text-3: #7488a3;
+  /* App chrome (sidebar, top bar): light, separated by hairlines rather than a dark slab. */
+  --chrome: #ffffff;
+  --chrome-2: #f2f4f7;
+  --chrome-hover: #f2f4f7;
+  --chrome-border: #e4e7ec;
+  --chrome-text: #101828;
+  --chrome-text-2: #475467;
+  --chrome-text-3: #636c7e;
+  --chrome-current: #edf3fc;
+  --chrome-current-text: #174a96;
+  --chrome-on: #ffffff;
 
   --font-sans: -apple-system, BlinkMacSystemFont, 'Segoe UI Variable Text', 'Segoe UI', system-ui, Roboto, 'Noto Sans', 'Helvetica Neue', Arial, sans-serif;
   --font-mono: ui-monospace, 'SF Mono', 'Cascadia Mono', 'Segoe UI Mono', 'Roboto Mono', Menlo, Consolas, monospace;
@@ -57,14 +62,14 @@
 
   --r-xs: 3px;
   --r-sm: 4px;
-  --r-md: 6px;
-  --r-lg: 8px;
-  --r-xl: 12px;
+  --r-md: 8px;
+  --r-lg: 10px;
+  --r-xl: 14px;
   --r-pill: 999px;
 
-  --sh-1: 0 1px 2px rgb(14 26 43 / 0.06);
-  --sh-2: 0 1px 2px rgb(14 26 43 / 0.06), 0 4px 12px -2px rgb(14 26 43 / 0.1);
-  --sh-3: 0 12px 32px -8px rgb(14 26 43 / 0.24), 0 2px 6px rgb(14 26 43 / 0.08);
+  --sh-1: 0 1px 2px rgb(16 24 40 / 0.05);
+  --sh-2: 0 1px 2px rgb(16 24 40 / 0.05), 0 4px 12px -2px rgb(16 24 40 / 0.08);
+  --sh-3: 0 12px 32px -8px rgb(16 24 40 / 0.18), 0 2px 6px rgb(16 24 40 / 0.06);
 
   --dur-1: 100ms;
   --dur-2: 160ms;
@@ -77,89 +82,99 @@
 
 @media (prefers-color-scheme: dark) {
   :root:not([data-theme='light']) {
-    --bg: #0b1420;
-    --surface: #111d2e;
-    --surface-raised: #16263d;
-    --surface-sunken: #0d1725;
-    --surface-hover: #17273d;
-    --border: #24374f;
-    --border-strong: #5c6f88;
-    --text: #e8edf4;
-    --text-2: #a3b2c7;
-    --text-3: #7f90a8;
-    --accent: #ff4d5e;
-    --accent-hover: #ff6b79;
-    --accent-soft: #3a1219;
-    --accent-soft-text: #ff8b96;
-    --accent-line: #5c1f28;
-    --on-accent: #ffffff;
+    --bg: #0f1115;
+    --surface: #16191f;
+    --surface-raised: #1c2028;
+    --surface-sunken: #121418;
+    --surface-hover: #1e222a;
+    --border: #2a2f38;
+    --border-strong: #5f6878;
+  --border-control: #3a404b;
+    --text: #eceef2;
+    --text-2: #aab1bd;
+    --text-3: #8a92a0;
+    --accent: #7eb0ff;
+    --accent-hover: #a0c4ff;
+    --accent-soft: #172338;
+    --accent-soft-text: #a9c9ff;
+    --accent-line: #2b3f62;
+    --on-accent: #0b1a33;
+    --highlight: #f7a440;
     --success: #4cc472;
-    --success-soft: #11291a;
-    --success-text: #6fd08d;
+    --success-soft: #11241a;
+    --success-text: #74d394;
     --warn: #e5ad3e;
-    --warn-soft: #2e2310;
+    --warn-soft: #2a2112;
     --warn-text: #f0c063;
     --danger: #f4776c;
-    --danger-soft: #341614;
+    --danger-soft: #311717;
     --danger-text: #f79a91;
     --on-danger: #2a0a07;
-    --info: #6aa5f5;
-    --info-soft: #13233c;
-    --info-text: #8bb9f8;
-    --focus: #6aa5f5;
-    --chrome: #0a121e;
-    --chrome-2: #111d2e;
-    --chrome-hover: #17273d;
-    --chrome-border: #1e2f45;
-    --chrome-text: #e8edf4;
-    --chrome-text-2: #9fb0c6;
-    --chrome-text-3: #7488a3;
-    --sh-1: 0 0 0 1px rgb(255 255 255 / 0.03) inset;
-    --sh-2: 0 0 0 1px rgb(255 255 255 / 0.04) inset;
+    --info: #4fc3d9;
+    --info-soft: #102730;
+    --info-text: #7fd6e6;
+    --focus: #7eb0ff;
+    --chrome: #13161b;
+    --chrome-2: #1c2028;
+    --chrome-hover: #1e222a;
+    --chrome-border: #2a2f38;
+    --chrome-text: #eceef2;
+    --chrome-text-2: #aab1bd;
+    --chrome-text-3: #8a92a0;
+    --chrome-current: #1a2740;
+    --chrome-current-text: #cfe0ff;
+    --chrome-on: #2a2f38;
+    --sh-1: 0 0 0 1px rgb(255 255 255 / 0.02) inset;
+    --sh-2: 0 0 0 1px rgb(255 255 255 / 0.03) inset, 0 6px 16px -6px rgb(0 0 0 / 0.5);
     --sh-3: 0 16px 40px -8px rgb(0 0 0 / 0.6);
     color-scheme: dark;
   }
 }
 :root[data-theme='dark'] {
-  --bg: #0b1420;
-  --surface: #111d2e;
-  --surface-raised: #16263d;
-  --surface-sunken: #0d1725;
-  --surface-hover: #17273d;
-  --border: #24374f;
-  --border-strong: #5c6f88;
-  --text: #e8edf4;
-  --text-2: #a3b2c7;
-  --text-3: #7f90a8;
-  --accent: #ff4d5e;
-  --accent-hover: #ff6b79;
-  --accent-soft: #3a1219;
-  --accent-soft-text: #ff8b96;
-  --accent-line: #5c1f28;
-  --on-accent: #ffffff;
+  --bg: #0f1115;
+  --surface: #16191f;
+  --surface-raised: #1c2028;
+  --surface-sunken: #121418;
+  --surface-hover: #1e222a;
+  --border: #2a2f38;
+  --border-strong: #5f6878;
+  --border-control: #3a404b;
+  --text: #eceef2;
+  --text-2: #aab1bd;
+  --text-3: #8a92a0;
+  --accent: #7eb0ff;
+  --accent-hover: #a0c4ff;
+  --accent-soft: #172338;
+  --accent-soft-text: #a9c9ff;
+  --accent-line: #2b3f62;
+  --on-accent: #0b1a33;
+  --highlight: #f7a440;
   --success: #4cc472;
-  --success-soft: #11291a;
-  --success-text: #6fd08d;
+  --success-soft: #11241a;
+  --success-text: #74d394;
   --warn: #e5ad3e;
-  --warn-soft: #2e2310;
+  --warn-soft: #2a2112;
   --warn-text: #f0c063;
   --danger: #f4776c;
-  --danger-soft: #341614;
+  --danger-soft: #311717;
   --danger-text: #f79a91;
   --on-danger: #2a0a07;
-  --info: #6aa5f5;
-  --info-soft: #13233c;
-  --info-text: #8bb9f8;
-  --focus: #6aa5f5;
-  --chrome: #0a121e;
-  --chrome-2: #111d2e;
-  --chrome-hover: #17273d;
-  --chrome-border: #1e2f45;
-  --chrome-text: #e8edf4;
-  --chrome-text-2: #9fb0c6;
-  --chrome-text-3: #7488a3;
-  --sh-1: 0 0 0 1px rgb(255 255 255 / 0.03) inset;
-  --sh-2: 0 0 0 1px rgb(255 255 255 / 0.04) inset;
+  --info: #4fc3d9;
+  --info-soft: #102730;
+  --info-text: #7fd6e6;
+  --focus: #7eb0ff;
+  --chrome: #13161b;
+  --chrome-2: #1c2028;
+  --chrome-hover: #1e222a;
+  --chrome-border: #2a2f38;
+  --chrome-text: #eceef2;
+  --chrome-text-2: #aab1bd;
+  --chrome-text-3: #8a92a0;
+  --chrome-current: #1a2740;
+  --chrome-current-text: #cfe0ff;
+  --chrome-on: #2a2f38;
+  --sh-1: 0 0 0 1px rgb(255 255 255 / 0.02) inset;
+  --sh-2: 0 0 0 1px rgb(255 255 255 / 0.03) inset, 0 6px 16px -6px rgb(0 0 0 / 0.5);
   --sh-3: 0 16px 40px -8px rgb(0 0 0 / 0.6);
   color-scheme: dark;
 }
@@ -201,7 +216,7 @@ svg.icon { flex: none; display: block; }
   display: inline-flex; align-items: center; justify-content: center; gap: 8px;
   height: 40px; padding: 0 16px; border-radius: var(--r-md);
   font: 500 var(--fs-ui) / 1 var(--font-sans); white-space: nowrap;
-  border: 1px solid var(--border-strong); background: var(--surface); color: var(--text);
+  border: 1px solid var(--border-control); background: var(--surface); color: var(--text); box-shadow: var(--sh-1);
   cursor: pointer; text-decoration: none;
   transition: background var(--dur-1), border-color var(--dur-1), color var(--dur-1), transform var(--dur-1);
 }
@@ -209,7 +224,7 @@ svg.icon { flex: none; display: block; }
 .btn:active { transform: translateY(1px); }
 .btn.primary { background: var(--accent); border-color: var(--accent); color: var(--on-accent); }
 .btn.primary:hover { background: var(--accent-hover); border-color: var(--accent-hover); }
-.btn.ghost { background: transparent; border-color: transparent; color: var(--text-2); }
+.btn.ghost { background: transparent; border-color: transparent; color: var(--text-2); box-shadow: none; }
 .btn.ghost:hover { background: var(--surface-hover); color: var(--text); }
 .btn.danger { background: var(--danger); border-color: var(--danger); color: var(--on-danger); }
 .btn.sm { height: 32px; padding: 0 12px; font-size: var(--fs-table); border-radius: var(--r-sm); gap: 6px; }
@@ -306,7 +321,7 @@ table.data tr.detail td { background: var(--surface-sunken); font-size: var(--fs
 .theme-switch { display: flex; gap: 2px; padding: 3px; border-radius: var(--r-md); background: var(--chrome-2); justify-self: stretch; }
 .theme-switch button { flex: 1; display: inline-flex; align-items: center; justify-content: center; gap: 5px; height: 30px; padding: 0 6px; border: 0; border-radius: var(--r-sm); background: none; font: 500 12.5px/1 var(--font-sans); color: var(--chrome-text-2); cursor: pointer; }
 .theme-switch button:hover { color: var(--chrome-text); }
-.theme-switch button.on { background: var(--chrome-hover); color: #ffffff; }
+.theme-switch button.on { background: var(--chrome-on); color: var(--chrome-text); box-shadow: var(--sh-1), 0 0 0 1px var(--chrome-border); }
 
 /* ---------- docs shell ---------- */
 .dshell { display: grid; grid-template-columns: var(--sidebar-w) minmax(0, 1fr); min-height: 100dvh; background: var(--bg); }
@@ -320,7 +335,7 @@ table.data tr.detail td { background: var(--surface-sunken); font-size: var(--fs
 .dnav-item { position: relative; display: flex; align-items: center; gap: 10px; min-height: 38px; padding: 0 10px; border-radius: var(--r-md); font-size: var(--fs-ui); font-weight: 500; color: var(--chrome-text-2); text-decoration: none; }
 .dnav-item .icon { color: var(--chrome-text-3); }
 .dnav-item:hover { background: var(--chrome-hover); color: var(--chrome-text); }
-.dnav-item.current { background: var(--chrome-2); color: #ffffff; }
+.dnav-item.current { background: var(--chrome-current); color: var(--chrome-current-text); font-weight: 600; }
 .dnav-item.current .icon { color: var(--accent); }
 .dnav-item.current::before { content: ''; position: absolute; left: 0; top: 8px; bottom: 8px; width: 3px; border-radius: 2px; background: var(--accent); }
 .dside-foot { margin-top: auto; display: grid; gap: 12px; padding: 0 6px; }
@@ -329,7 +344,7 @@ table.data tr.detail td { background: var(--surface-sunken); font-size: var(--fs
 .privacy-note .icon { color: var(--success); }
 .dscrim { position: fixed; inset: 0; z-index: 15; background: rgb(0 0 0 / 0.45); border: 0; }
 .dmain { min-width: 0; display: flex; flex-direction: column; }
-.dtop { position: sticky; top: 0; z-index: 10; display: flex; align-items: center; gap: 12px; height: 56px; padding: 0 32px; background: var(--chrome); border-bottom: 1px solid var(--chrome-border); }
+.dtop { position: sticky; top: 0; z-index: 10; display: flex; align-items: center; gap: 12px; height: 56px; padding: 0 32px; background: color-mix(in srgb, var(--chrome) 86%, transparent); backdrop-filter: saturate(1.4) blur(10px); -webkit-backdrop-filter: saturate(1.4) blur(10px); border-bottom: 1px solid var(--chrome-border); }
 .dcrumb { display: flex; align-items: center; gap: 6px; font-size: var(--fs-ui); color: var(--chrome-text); }
 .dcrumb .faint { color: var(--chrome-text-3); }
 .dcrumb .icon { color: var(--chrome-text-3); }
