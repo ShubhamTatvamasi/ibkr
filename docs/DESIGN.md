@@ -26,8 +26,8 @@ instead of deciding silently.
 | **Upload statements** | Pick the return (deadline-aware: due / belated / revise), get the two IBKR runs with exact dates and "Configure with AI" prompts, drop XML files, see period coverage and which Flex sections were found, set residency, slab and foreign TIN. |
 | **Review issues** | Must fix (missing exchange rates, missing sections), needs input (company addresses, TIN), method choices, checks and notes. |
 | **File your return** | One page per screen in filing order: Form 67/44 → CG → OS → FSI → TR → FA A2 → FA A3. Portal path, period, "n of m values copied", fields with copy buttons, working tables. |
-| **Insights** | Open lots with rupee gains, lots turning long-term, US estate-tax exposure vs $60,000, ₹20 lakh Schedule FA penalty threshold, withholding above the 25% treaty rate, money sent to IBKR. |
-| **Downloads** | Filing pack: schedule files in portal column order, working papers, exchange-rate appendix, README; per-file preview and a ZIP. |
+| **Insights** | AIS check: calendar-year dividends, interest, gross proceeds and 31 Dec balance against the AIS Foreign Assets Information report, with a feedback remark. Open lots with rupee gains, lots turning long-term, US estate-tax exposure vs $60,000, ₹20 lakh Schedule FA penalty threshold, withholding above the 25% treaty rate, money sent to IBKR. |
+| **Downloads** | ITR-2 JSON (AY 2026-27, schema V1.2): Schedule FA/FSI/TR objects validated against the official schema in tests, and an experimental merge of Tables A2/A3 into the user's own ITR-2 JSON (FA only — FSI and TR must agree with Part B-TTI, which only the utility computes). Filing pack: schedule files in portal column order, working papers, exchange-rate appendix, README; per-file preview and a ZIP. |
 
 ## Data sources
 
@@ -66,7 +66,7 @@ If SBI published nothing on a date, the latest earlier card is used; gaps over 7
 peak and closing from the daily balance, gross amounts credited — one row per nature of amount. A3:
 one row per purchase lot held at any time in the year, including lots sold (closing 0). Peak = max over
 days of shares held × price × that day's rate. Dividends credited only to lots held on the day before the
-ex-date. There is no official bulk upload for A2/A3; the files follow the portal column order. Black
+ex-date. There is no official CSV upload for A2/A3, FSI, TR or non-112A capital gains (the ITR-2 utility ships CSV templates only for 112A, 115AD, IT, TCS and TDS); the CSVs follow the portal column order as a typing aid, and the full ITR JSON is the only machine import. Black
 Money Act: ₹10 lakh penalty for non-disclosure, no penalty or prosecution if non-immovable foreign
 assets total ₹20 lakh or less (disclosure still required).
 

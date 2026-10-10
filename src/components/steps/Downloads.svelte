@@ -1,5 +1,6 @@
 <script lang="ts">
   import Icon from '../ui/Icon.svelte';
+  import ItrJson from '../ui/ItrJson.svelte';
   import { app } from '../state.svelte';
   import { buildPack, byteSize, packPrefix, zipPack, type PackCategory, type PackFile } from '../../lib/export/pack';
   import { download } from '../../lib/ui/format';
@@ -119,6 +120,8 @@
     <p class="prov"><Icon name="clock" size={16} /><span>Provisional: the year isn't over. Re-export from IBKR after it ends and rebuild the pack before filing.</span></p>
   {/if}
 </section>
+
+<ItrJson />
 
 <div class="seg filters" role="tablist" aria-label="Filter files">
   {#each [['all', 'All', files.length], ['schedule', 'Schedules', count('schedule')], ['working', 'Working papers', count('working')], ['reference', 'Reference', count('reference')]] as [id, label, n]}
