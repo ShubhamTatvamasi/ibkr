@@ -154,7 +154,7 @@ export function itrSchedules(r: Report, entities: EntityOverrides = {}): { sched
 
   const schedules: ItrSchedules = { ScheduleFA: { DtlsForeignCustodialAcc: a2, DtlsForeignEquityDebtInterest: a3 } };
 
-  if (foreign.fsi.length) {
+  if (foreign.fsi.length && r.foreignIncomeTaxable) {
     const tin = cleanText(settings.tin, 75);
     if (!tin) issues.push({ schedule: 'FSI', message: 'Taxpayer Identification Number is empty — enter it in Review issues.' });
     const zero: FsiIncome = { IncFrmOutsideInd: 0, TaxPaidOutsideInd: 0, TaxPayableinInd: 0, TaxReliefinInd: 0 };
@@ -194,7 +194,7 @@ export function itrSchedules(r: Report, entities: EntityOverrides = {}): { sched
     };
   }
 
-  if (foreign.tr.length) {
+  if (foreign.tr.length && r.foreignIncomeTaxable) {
     // TR must equal the FSI totals per country (validation rules 454-455), so derive it from FSI.
     const fsiRows = schedules.ScheduleFSI?.ScheduleFSIDtls ?? [];
     const rows = foreign.fsi.map((c, i) => ({

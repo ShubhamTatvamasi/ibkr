@@ -13,7 +13,7 @@
   const ids = $derived(fsi.flatMap((c) => [`fsi:${c.country.iso}:code`, `fsi:${c.country.iso}:tin`, ...c.heads.flatMap((h) => ['b', 'c', 'd', 'e'].map((k) => `fsi:${c.country.iso}:${h.head}:${k}`))]));
 </script>
 
-<ScheduleHead title="Schedule FSI — Income from outside India" path="ITR-2 › Schedule FSI › Add country" period={`FY ${date(ty.fyStart)} – ${date(ty.fyEnd)}`} {ids}>
+<ScheduleHead scope="income" title="Schedule FSI — Income from outside India" path="ITR-2 › Schedule FSI › Add country" period={`FY ${date(ty.fyStart)} – ${date(ty.fyEnd)}`} {ids}>
   <div class="callout">
     <Icon name="info" />
     <div>

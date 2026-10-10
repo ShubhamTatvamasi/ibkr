@@ -14,7 +14,7 @@
   const ids = $derived(['os:div', 'os:int', ...QUARTER_LABELS.map((_, i) => `os:q${i}`)]);
 </script>
 
-<ScheduleHead title="Schedule OS — Income from other sources" path="ITR-2 › Schedule Other Sources" period={`FY ${date(ty.fyStart)} – ${date(ty.fyEnd)}`} {ids}>
+<ScheduleHead scope="income" title="Schedule OS — Income from other sources" path="ITR-2 › Schedule Other Sources" period={`FY ${date(ty.fyStart)} – ${date(ty.fyEnd)}`} {ids}>
   <div class="callout">
     <Icon name="info" />
     <div>

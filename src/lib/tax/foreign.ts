@@ -2,7 +2,7 @@ import Decimal from 'decimal.js';
 import type { FlexData } from '../flex/model';
 import type { CgResult } from './cg';
 import type { Settings } from './common';
-import { issuerCountry, TREATY_CAP, type Country } from './countries';
+import { issuerCountry, reliefSection, TREATY_CAP, type Country } from './countries';
 import type { IncomeResult } from './income';
 
 /** LTCG on foreign shares: 12.5% plus 4% cess (surcharge ignored), for the "tax payable in India" column. */
@@ -18,6 +18,7 @@ export interface Form67Row {
   article: string;
   dtaaRatePct?: number;
   creditInr: Decimal;
+  section: '90' | '91';
 }
 
 export interface FsiHead {
@@ -38,8 +39,8 @@ export interface FsiCountry {
 export interface ForeignResult {
   form67: Form67Row[];
   fsi: FsiCountry[];
-  tr: { country: Country; taxPaidInr: Decimal; reliefInr: Decimal; section: '90' }[];
-  totals: { taxPaidInr: Decimal; reliefInr: Decimal };
+  tr: { country: Country; taxPaidInr: Decimal; reliefInr: Decimal; section: '90' | '91' }[];
+  totals: { taxPaidInr: Decimal; reliefInr: Decimal; reliefDtaaInr: Decimal; reliefNonDtaaInr: Decimal };
 }
 
 export function foreignIncome(data: FlexData, cg: CgResult, inc: IncomeResult, settings: Settings): ForeignResult {
@@ -58,6 +59,7 @@ export function foreignIncome(data: FlexData, cg: CgResult, inc: IncomeResult, s
       article: g.article,
       dtaaRatePct: TREATY_CAP[g.country.iso]?.[g.head],
       creditInr: g.reliefInr,
+      section: g.section,
     }));
 
   // Capital gains by issuer country (no foreign tax on them for non-resident aliens in the US).
@@ -108,11 +110,17 @@ export function foreignIncome(data: FlexData, cg: CgResult, inc: IncomeResult, s
     fsi.push({ country, heads, total: { incomeInr: sum('incomeInr'), taxPaidInr: sum('taxPaidInr'), indianTaxInr: sum('indianTaxInr'), reliefInr: sum('reliefInr') } });
   }
 
-  const tr = fsi.filter((c) => c.total.taxPaidInr.gt(0)).map((c) => ({ country: c.country, taxPaidInr: c.total.taxPaidInr, reliefInr: c.total.reliefInr, section: '90' as const }));
+  const tr = fsi.filter((c) => c.total.taxPaidInr.gt(0)).map((c) => ({ country: c.country, taxPaidInr: c.total.taxPaidInr, reliefInr: c.total.reliefInr, section: reliefSection(c.country.iso) }));
+  const relief = (pick: (t: (typeof tr)[number]) => boolean) => tr.filter(pick).reduce((s, t) => s.add(t.reliefInr), zero());
   return {
     form67,
     fsi,
     tr,
-    totals: { taxPaidInr: tr.reduce((s, t) => s.add(t.taxPaidInr), zero()), reliefInr: tr.reduce((s, t) => s.add(t.reliefInr), zero()) },
+    totals: {
+      taxPaidInr: tr.reduce((s, t) => s.add(t.taxPaidInr), zero()),
+      reliefInr: relief(() => true),
+      reliefDtaaInr: relief((t) => t.section === '90'),
+      reliefNonDtaaInr: relief((t) => t.section === '91'),
+    },
   };
 }

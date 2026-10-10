@@ -13,7 +13,7 @@
   const ids = $derived(rows.flatMap((_, i) => ['income', 'paid', 'rate', 'india', 'article', 'dtaa', 'credit'].map((k) => `f67:${i}:${k}`)));
 </script>
 
-<ScheduleHead
+<ScheduleHead scope="income"
   title={ty.law.ftcForm}
   path={ty.newAct ? 'e-File › Income Tax Forms › File Income Tax Forms › Form 44' : 'e-File › Income Tax Forms › File Income Tax Forms › Forms as per Income Tax Act 1961 › Form 67'}
   period={`FY ${date(ty.fyStart)} – ${date(ty.fyEnd)}`}
@@ -42,10 +42,16 @@
       <PortalField id={`f67:${i}:rate`} label="Tax paid outside India — Rate (%)" display={`${f.taxRatePct.toFixed(2)}%`} copy={f.taxRatePct.toFixed(2)} />
       <PortalField id={`f67:${i}:india`} label="Tax payable on such income under normal provisions in India" display={inr(f.indianTaxInr)} copy={raw(f.indianTaxInr)} hint={`At your marginal rate of ${r.settings.marginalRatePct}%`} />
       <PortalField id={`f67:${i}:115jb`} label="Tax payable on such income under section 115JB/JC" display="0" copy="0" tone="muted" />
-      <PortalField id={`f67:${i}:article`} label="Article No. of DTAA" display={f.article} copy={f.article.replace('Article ', '')} />
-      <PortalField id={`f67:${i}:dtaa`} label="Rate of tax as per DTAA (%)" display={f.dtaaRatePct !== undefined ? `${f.dtaaRatePct}%` : '—'} copy={f.dtaaRatePct !== undefined ? String(f.dtaaRatePct) : undefined} />
-      <PortalField id={`f67:${i}:credit`} label="Credit claimed under section 90 — Amount" display={inr(f.creditInr)} copy={raw(f.creditInr)} hint="Lowest of tax paid, Indian tax and treaty rate" />
-      <PortalField id={`f67:${i}:s91`} label="Credit claimed under section 91 — Amount" display="0" copy="0" tone="muted" hint="Not applicable where a tax treaty exists" />
+      {#if f.section === '90'}
+        <PortalField id={`f67:${i}:article`} label="Article No. of DTAA" display={f.article} copy={f.article.replace('Article ', '')} />
+        <PortalField id={`f67:${i}:dtaa`} label="Rate of tax as per DTAA (%)" display={f.dtaaRatePct !== undefined ? `${f.dtaaRatePct}%` : '—'} copy={f.dtaaRatePct !== undefined ? String(f.dtaaRatePct) : undefined} />
+        <PortalField id={`f67:${i}:credit`} label="Credit claimed under section 90 — Amount" display={inr(f.creditInr)} copy={raw(f.creditInr)} hint="Lowest of tax paid, Indian tax and treaty rate" />
+        <PortalField id={`f67:${i}:s91`} label="Credit claimed under section 91 — Amount" display="0" copy="0" tone="muted" hint="Not applicable where a tax treaty exists" />
+      {:else}
+        <PortalField id={`f67:${i}:article`} label="Article No. of DTAA" display="—" tone="muted" hint="India has no tax treaty with this country" text />
+        <PortalField id={`f67:${i}:credit`} label="Credit claimed under section 90 — Amount" display="0" copy="0" tone="muted" />
+        <PortalField id={`f67:${i}:s91`} label="Credit claimed under section 91 — Amount" display={inr(f.creditInr)} copy={raw(f.creditInr)} hint="Lower of tax paid and Indian tax on that income" />
+      {/if}
     </FieldGroup>
   {/each}
 

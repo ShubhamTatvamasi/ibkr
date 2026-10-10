@@ -16,7 +16,7 @@
   const ids = $derived(entries.flatMap((_, i) => ['inst', 'addr', 'zip', 'acct', 'open', 'peak', 'close', 'amt'].map((k) => `fa2:${i}:${k}`)));
 </script>
 
-<ScheduleHead title="Schedule FA · Table A2 — Foreign custodial account" path="ITR-2 › Schedule FA › A2 › Add" period={`Calendar year ${year}`} {ids}>
+<ScheduleHead scope="fa" title="Schedule FA · Table A2 — Foreign custodial account" path="ITR-2 › Schedule FA › A2 › Add" period={`Calendar year ${year}`} {ids}>
   <div class="callout warn">
     <Icon name="calendar" />
     <div>

@@ -23,7 +23,7 @@
   const fromBook = $derived(ent?.source === 'address book');
 </script>
 
-<ScheduleHead title="Schedule FA · Table A3 — Foreign equity holdings" path="ITR-2 › Schedule FA › A3 › Add" period={`Calendar year ${year}`} {ids}>
+<ScheduleHead scope="fa" title="Schedule FA · Table A3 — Foreign equity holdings" path="ITR-2 › Schedule FA › A3 › Add" period={`Calendar year ${year}`} {ids}>
   <div class="callout warn">
     <Icon name="calendar" />
     <div>

@@ -2,7 +2,7 @@ import type { IsoDate } from '../dates';
 import Decimal from 'decimal.js';
 import type { Account, CashTxn, FlexData } from '../flex/model';
 import type { Collector, Conversion, Fx, Settings } from './common';
-import { issuerCountry, TREATY_CAP, type Country } from './countries';
+import { issuerCountry, reliefSection, TREATY_CAP, type Country } from './countries';
 import { inRange, quarterIndex, type TaxYear } from './years';
 
 export interface IncomeRow {
@@ -25,6 +25,9 @@ export interface TaxRow {
 export interface FtcCountry {
   country: Country;
   head: 'dividend' | 'interest';
+  /** Section 90 (treaty) or 91 (no treaty with that country). */
+  section: '90' | '91';
+  /** DTAA article; empty under section 91. */
   article: string;
   incomeInr: Decimal;
   foreignTaxInr: Decimal;
@@ -114,7 +117,8 @@ export function ftcGroups(res: Pick<IncomeResult, 'dividends' | 'interest' | 'ta
       g = {
         country: c,
         head,
-        article: head === 'dividend' ? 'Article 10' : 'Article 11',
+        section: reliefSection(c.iso),
+        article: reliefSection(c.iso) === '91' ? '' : head === 'dividend' ? 'Article 10' : 'Article 11',
         incomeInr: new Decimal(0),
         foreignTaxInr: new Decimal(0),
         indianTaxInr: new Decimal(0),

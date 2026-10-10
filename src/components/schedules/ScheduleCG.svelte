@@ -46,7 +46,7 @@
   const ids = $derived(sections.flatMap((s) => [...fields(s.t).filter((f) => f.v).map((f) => `cg:${s.key}:${f.k}`), ...QUARTER_LABELS.map((_, i) => `cg:${s.key}:q${i}`)]));
 </script>
 
-<ScheduleHead title="Schedule CG — Capital gains" path="ITR-2 › Schedule Capital Gains" period={`FY ${date(ty.fyStart)} – ${date(ty.fyEnd)}`} {ids}>
+<ScheduleHead scope="income" title="Schedule CG — Capital gains" path="ITR-2 › Schedule Capital Gains" period={`FY ${date(ty.fyStart)} – ${date(ty.fyEnd)}`} {ids}>
   <div class="callout">
     <Icon name="info" />
     <div>

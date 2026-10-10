@@ -30,6 +30,8 @@ export interface Report {
   foreign: ForeignResult;
   /** Calendar-year figures as the AIS foreign-assets report shows them. */
   ais: AisFigures[];
+  /** False for RNOR and non-residents: foreign income from these shares is not taxable in India. */
+  foreignIncomeTaxable: boolean;
   /** Set-off of this year's and brought-forward capital losses, and what carries forward. */
   losses: LossResult;
   /** Lots without a cost, or dated on a transfer in, for the user to correct. */
@@ -184,6 +186,7 @@ export function buildReport(raw: FlexData, account: Account, ayStart: number, se
     log.add('warn', ty.law.ftcForm, `Foreign tax paid is ₹1 lakh or more, so ${ty.law.ftcForm} must be verified by an accountant (Rule 76(16)).`);
   }
   if (settings.residency !== 'ROR') {
+    log.add('warn', 'Residential status', `As ${settings.residency === 'RNOR' ? 'RNOR' : 'a non-resident'}, income from these foreign shares (dividends, interest, capital gains) is not taxable in India and no foreign tax credit is claimed. Schedules CG, OS, FSI, TR and ${ty.law.ftcForm} show figures for reference only.`);
     log.add('info', 'Schedule FA', `Schedule FA applies only to residents who are ordinarily resident; as ${settings.residency === 'RNOR' ? 'RNOR' : 'a non-resident'} you do not fill it. The FA figures are shown for reference.`);
   }
   if (foreign.fsi.length && !settings.tin.trim()) {
@@ -209,6 +212,7 @@ export function buildReport(raw: FlexData, account: Account, ayStart: number, se
     foreign,
     ais: [aisFigures(data, account, ty, fa)],
     lotsToCheck: toCheck,
+    foreignIncomeTaxable: settings.residency === 'ROR',
     losses: setOffLosses(cg, ayStart, settings.broughtForward ?? [], settings.filedByDueDate ?? true),
     rates: [...log.rates.values()].sort((a, b) => a.currency.localeCompare(b.currency) || a.requestedDate.localeCompare(b.requestedDate)),
     warnings: [...log.warnings].sort((a, b) => order[a.level] - order[b.level]),
@@ -404,6 +408,7 @@ export function buildCombinedReport(data: FlexData, accounts: Account[], ayStart
     foreign,
     ais: parts.flatMap((p) => p.ais),
     lotsToCheck: parts.flatMap((p) => p.lotsToCheck),
+    foreignIncomeTaxable: settings.residency === 'ROR',
     losses: setOffLosses(cg, ayStart, settings.broughtForward ?? [], settings.filedByDueDate ?? true),
     rates: [...rates.values()].sort((a, b) => a.currency.localeCompare(b.currency) || a.requestedDate.localeCompare(b.requestedDate)),
     warnings,

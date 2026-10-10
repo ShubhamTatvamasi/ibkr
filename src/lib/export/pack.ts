@@ -46,6 +46,9 @@ export function buildPack(r: Report, entities: EntityOverrides = {}): PackFile[]
   const { year: ty, fa, cg, income, foreign } = r;
   const pre = packPrefix(r);
   const files: PackFile[] = [];
+  // RNOR and non-residents: no tax on this foreign income, and no Schedule FA.
+  const notForYou = (name: string) =>
+    r.settings.residency !== 'ROR' && (/^0[1-5]_/.test(name) || /^0[67]_schedule_fa/.test(name));
   const add = (f: Omit<PackFile, 'rows' | 'content' | 'name' | 'empty'> & { name: string; table: Cell[][]; empty?: boolean }) =>
     files.push({
       name: `${pre}_${f.name}`,
@@ -56,7 +59,7 @@ export function buildPack(r: Report, entities: EntityOverrides = {}): PackFile[]
       rows: Math.max(0, f.table.length - 1),
       content: toCsv(f.table),
       table: f.table,
-      empty: f.empty ?? f.table.length <= 1,
+      empty: (f.empty ?? f.table.length <= 1) || notForYou(f.name),
     });
 
   // ---------- schedules, in the order they are filed ----------
@@ -68,7 +71,7 @@ export function buildPack(r: Report, entities: EntityOverrides = {}): PackFile[]
     category: 'schedule',
     table: [
       ['Sl. No.', 'Name of the country', 'Source of income', 'Income from outside India', 'Tax paid outside India - Amount', 'Tax paid outside India - Rate (%)', 'Tax payable on such income under normal provisions in India', 'Article No. of DTAA', 'Rate of tax as per DTAA (%)', 'Credit claimed u/s 90 - Amount', 'Credit claimed u/s 91 - Amount', 'Total foreign tax credit claimed'],
-      ...foreign.form67.map((f, i): Cell[] => [i + 1, f.country.name, f.source, rupees(f.incomeInr), rupees(f.taxPaidInr), f.taxRatePct.toFixed(2), rupees(f.indianTaxInr), f.article, f.dtaaRatePct ?? '', rupees(f.creditInr), 0, rupees(f.creditInr)]),
+      ...foreign.form67.map((f, i): Cell[] => [i + 1, f.country.name, f.source, rupees(f.incomeInr), rupees(f.taxPaidInr), f.taxRatePct.toFixed(2), rupees(f.indianTaxInr), f.article, f.dtaaRatePct ?? '', f.section === '90' ? rupees(f.creditInr) : 0, f.section === '91' ? rupees(f.creditInr) : 0, rupees(f.creditInr)]),
     ],
   });
 

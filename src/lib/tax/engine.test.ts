@@ -343,3 +343,27 @@ describe('lots without cost (transfers in, RSUs)', () => {
     expect(r.warnings.some((w) => w.area === 'Cost basis')).toBe(false);
   });
 });
+
+describe('residential status', () => {
+  const { data, fx } = load();
+  const account = accountsIn(data)[0];
+  it('marks foreign income as not taxable for RNOR and leaves FSI/TR out of the JSON', async () => {
+    const r = buildReport(data, account, 2026, { ...DEFAULT_SETTINGS, residency: 'RNOR' }, fx, { today: '2026-10-10' });
+    expect(r.foreignIncomeTaxable).toBe(false);
+    expect(r.warnings.some((w) => w.area === 'Residential status')).toBe(true);
+    const { itrSchedules } = await import('../itr/json');
+    const { schedules } = itrSchedules(r, {});
+    expect(schedules.ScheduleFSI).toBeUndefined();
+    expect(schedules.ScheduleTR1).toBeUndefined();
+    const { buildPack } = await import('../export/pack');
+    expect(buildPack(r).filter((f) => f.category === 'schedule' && !f.empty)).toEqual([]);
+  });
+});
+
+describe('relief without a tax treaty (section 91)', () => {
+  it('uses section 91 for jurisdictions with no DTAA', async () => {
+    const { reliefSection } = await import('./countries');
+    expect(reliefSection('KY')).toBe('91');
+    expect(reliefSection('US')).toBe('90');
+  });
+});
