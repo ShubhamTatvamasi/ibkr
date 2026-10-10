@@ -22,6 +22,15 @@ export interface TaxYear {
 
 export const SUPPORTED_AY = [2027, 2026, 2025];
 
+/**
+ * The return most people are working on today: the year whose financial year has ended and whose
+ * filing window (original, belated, revised) runs until the following 31 March.
+ */
+export function defaultAy(today: Date = new Date()): number {
+  const ay = today.getMonth() >= 3 ? today.getFullYear() : today.getFullYear() - 1;
+  return Math.min(Math.max(ay, SUPPORTED_AY[SUPPORTED_AY.length - 1]), SUPPORTED_AY[0]);
+}
+
 export function taxYear(ayStart: number): TaxYear {
   const fy = ayStart - 1;
   const newAct = fy >= 2026;

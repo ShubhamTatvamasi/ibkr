@@ -24,7 +24,11 @@ export class MissingRateError extends Error {
   }
 }
 
-export type RateOverrides = Record<string, string>; // `${CCY}|${date}` → rate
+export type RateOverrides = Record<string, string>; // `${CCY}|${date}` → rate as quoted on SBI's card
+
+/** SBI's card quotes these per 100 units; manual entries are taken as quoted. */
+const PER_100 = new Set(['JPY', 'THB', 'KRW']);
+export const quotedPer = (currency: string): number => (PER_100.has(currency) ? 100 : 1);
 
 export class Fx {
   constructor(
@@ -38,8 +42,16 @@ export class Fx {
       [...new Set(currencies)]
         .filter((c) => c && c !== 'INR')
         .map(async (ccy) => {
-          const res = await fetch(`${baseUrl}data/ttbr/${ccy}.json`);
-          if (res.ok) tables.set(ccy, new TtbrTable((await res.json()) as TtbrFile));
+          let res: Response;
+          try {
+            res = await fetch(`${baseUrl}data/ttbr/${ccy}.json`);
+          } catch {
+            throw new Error(`Couldn't load the SBI ${ccy} rates — check your connection and try again.`);
+          }
+          // 404: the currency isn't archived, reported later as a missing rate to enter manually.
+          if (res.status === 404) return;
+          if (!res.ok) throw new Error(`Couldn't load the SBI ${ccy} rates (HTTP ${res.status}). Try again.`);
+          tables.set(ccy, new TtbrTable((await res.json()) as TtbrFile));
         }),
     );
     return new Fx(tables, overrides);
@@ -56,7 +68,7 @@ export class Fx {
     }
     const manual = this.overrides[`${currency}|${date}`];
     if (manual) {
-      const rate = new Decimal(manual);
+      const rate = new Decimal(manual).div(quotedPer(currency));
       return { foreign: amount, currency, rate, requestedDate: date, rateDate: date, staleDays: 0, manual: true, inr: amount.mul(rate) };
     }
     const table = this.tables.get(currency);

@@ -31,7 +31,7 @@ export interface CgTotals {
   gainInr: Decimal;
   /** Net gain arising in each s.234C period (can be negative). */
   quarters: Decimal[];
-  /** Table F values: losses absorbed by later gains first, never negative, summing to max(0, total). */
+  /** Table F values: never negative, summing to max(0, total); see nonNegativeAccrual. */
   tableF: Decimal[];
 }
 
@@ -50,17 +50,26 @@ const zeroTotals = (): CgTotals => ({
   tableF: [0, 0, 0, 0, 0].map(() => new Decimal(0)),
 });
 
-/** Accrual by period of a running net gain: each period gets the increase in max(0, cumulative). */
+/**
+ * Table F accrual. A gain counts in a period only if later losses in the year do not wipe it out:
+ * the amount reported up to period i is max(0, the lowest cumulative net gain from i to year end).
+ * Values are never negative and always sum to max(0, total), as the portal checks Table F against
+ * Schedule BFLA (validation rules 169-172, 577-578).
+ */
 export function nonNegativeAccrual(quarters: Decimal[]): Decimal[] {
-  let cum = new Decimal(0);
-  let reported = new Decimal(0);
-  return quarters.map((q) => {
-    cum = cum.add(q);
-    const target = Decimal.max(cum, 0);
-    const v = Decimal.max(target.sub(reported), 0);
-    reported = reported.add(v);
-    return v;
-  });
+  const cum: Decimal[] = [];
+  quarters.reduce((acc, q) => {
+    const next = acc.add(q);
+    cum.push(next);
+    return next;
+  }, new Decimal(0));
+  const floor = new Array<Decimal>(cum.length);
+  let min = new Decimal(Infinity);
+  for (let i = cum.length - 1; i >= 0; i--) {
+    min = Decimal.min(min, cum[i]);
+    floor[i] = Decimal.max(min, 0);
+  }
+  return floor.map((f, i) => (i === 0 ? f : f.sub(floor[i - 1])));
 }
 
 export function capitalGains(data: FlexData, account: Account, ty: TaxYear, settings: Settings, fx: Fx, log: Collector): CgResult {

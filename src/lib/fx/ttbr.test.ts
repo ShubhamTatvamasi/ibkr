@@ -58,3 +58,13 @@ describe('TtbrTable per-100 quotes', () => {
     expect(jpy.onOrBefore('2025-01-01').rate.toString()).toBe('0.6029');
   });
 });
+
+describe('manual rate overrides', () => {
+  it('takes JPY as quoted per 100 units and USD per unit', async () => {
+    const { Fx } = await import('../tax/fx');
+    const { default: Decimal } = await import('decimal.js');
+    const fx = new Fx(new Map(), { 'JPY|2019-05-31': '62.10', 'USD|2019-05-31': '69.20' });
+    expect(fx.on(new Decimal(1000), 'JPY', '2019-05-31').inr.toNumber()).toBeCloseTo(621);
+    expect(fx.on(new Decimal(10), 'USD', '2019-05-31').inr.toNumber()).toBeCloseTo(692);
+  });
+});

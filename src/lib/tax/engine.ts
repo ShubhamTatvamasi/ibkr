@@ -149,6 +149,14 @@ export function buildReport(data: FlexData, account: Account, ayStart: number, s
     const cats = [...new Set(unsupported.map((t) => t.assetCategory))].join(', ');
     log.add('warn', 'Scope', `Trades in ${cats} were found and are not computed (only stocks and ETFs are). Report them separately with your CA.`);
   }
+  const others = accountsIn(data).filter((a) => a.accountId !== account.accountId);
+  if (others.length) {
+    log.add(
+      'warn',
+      'Accounts',
+      `These figures are for ${account.accountId} only. The files also contain ${others.map((a) => a.accountId).join(', ')} — switch account in Upload statements and report it too (amounts add up; one FA A2 row per account).`,
+    );
+  }
   for (const ca of data.corporateActions.filter((c) => c.accountId === account.accountId && c.date >= ty.cyStart && c.date <= ty.fyEnd)) {
     log.add('warn', 'Corporate actions', `${ca.symbol} ${ca.type} on ${ca.date} (${ca.description}). Check the affected lots' quantities and peak values.`);
   }

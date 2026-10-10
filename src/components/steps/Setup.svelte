@@ -28,10 +28,13 @@
 
   function deadline(ay: number): { text: string; tone: 'accent' | 'warn' | 'danger' | 'neutral' } {
     const due = `${ay}-07-31`;
-    // Finance Act 2021: both belated (s.139(4)) and revised (s.139(5)) returns run to 31 Dec of the assessment year.
-    const last = `${ay}-12-31`;
+    // Belated returns (s.139(4)) run to 31 Dec of the assessment year. From AY 2026-27 the Finance Act
+    // 2026 lets revised returns (s.139(5)) run to 31 Mar, with a s.234I fee after 31 Dec.
+    const belated = `${ay}-12-31`;
+    const revised = ay >= 2026 ? `${ay + 1}-03-31` : belated;
     if (today <= due) return { text: `Due ${date(due)}`, tone: 'accent' };
-    if (today <= last) return { text: `Belated or revised filing until ${date(last)}`, tone: 'warn' };
+    if (today <= belated) return { text: ay >= 2026 ? `Belated until ${date(belated)} · revised until ${date(revised)}` : `Belated or revised filing until ${date(belated)}`, tone: 'warn' };
+    if (today <= revised) return { text: `Revised return only, until ${date(revised)} (with fee)`, tone: 'warn' };
     return { text: 'Closed — updated return only', tone: 'neutral' };
   }
 
@@ -160,7 +163,7 @@
         <Icon name="warn" />
         <div>
           <b>The original due date has passed.</b>
-          <p>A return filed now is belated (section 139(4)): a late fee applies, only the new tax regime is available, and this year's capital losses cannot be carried forward. If you already filed but left out foreign assets, a revised return is the usual fix — talk to your CA.</p>
+          <p>A return filed now is belated (section 139(4)): a late fee applies, only the new tax regime is available, and this year's capital losses cannot be carried forward. If you already filed but left out foreign assets or income, a revised return is the usual fix{app.ay >= 2026 ? ` — free until ${date(`${app.ay}-12-31`)}, then with a ₹1,000–₹5,000 fee until ${date(`${app.ay + 1}-03-31`)}` : ''}. Form 67 can still be filed until {date(`${app.ay + 1}-03-31`)} if the return is filed on time or belated.</p>
         </div>
       </div>
     {/if}
@@ -277,6 +280,13 @@
     </div>
 
     {#if app.busy}<p class="muted status" role="status">Reading files…</p>{/if}
+    {#if app.loadError}
+      <div class="callout danger load-error" role="alert">
+        <Icon name="error" />
+        <div><b>Files read, but the calculation couldn't start</b><p>{app.loadError}</p></div>
+        <button class="btn sm" onclick={() => app.retry()}><Icon name="refresh" size={16} />Try again</button>
+      </div>
+    {/if}
 
     {#if app.files.length}
       <h3 class="sub-h">Files</h3>
@@ -301,6 +311,22 @@
         {/each}
       </ul>
       {#if app.isSample}<p class="faint sample-note">Sample data is a fictional account. Add your own files to replace it.</p>{/if}
+    {/if}
+
+    {#if app.accounts.length > 1}
+      <div class="callout warn accounts" role="group" aria-labelledby="acct-h">
+        <Icon name="warn" />
+        <div>
+          <b id="acct-h">{app.accounts.length} IBKR accounts found</b>
+          <p>The schedules cover one account at a time. Report every account: add up the CG, OS, FSI and TR amounts, give each account its own Schedule FA A2 row, and list the A3 rows from each.</p>
+          <label class="field acct-pick">
+            <span>Show account</span>
+            <select bind:value={app.accountId}>
+              {#each app.accounts as a}<option value={a.accountId}>{a.accountId}{a.name ? ` · ${a.name}` : ''}</option>{/each}
+            </select>
+          </label>
+        </div>
+      </div>
     {/if}
 
     {#if app.data}
@@ -451,6 +477,8 @@
   .f-name { font-size: 13px; overflow-wrap: anywhere; }
   .f-meta { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; font-size: var(--fs-caption); }
   .f-err { font-size: 13px; color: var(--danger-text); }
+  .accounts, .load-error { margin-top: 16px; }
+  .acct-pick { margin-top: 10px; max-width: 360px; }
   .sample-note { font-size: 13px; margin-top: 8px; }
 
   .sub-h { font-size: var(--fs-ui); margin: 24px 0 10px; }

@@ -3,6 +3,7 @@
   import { app } from '../state.svelte';
   import { BASE, date } from '../../lib/ui/format';
   import { entityFor } from '../../lib/assets';
+  import { quotedPer } from '../../lib/tax/fx';
 
   const r = $derived(app.report!);
   const errors = $derived(r.warnings.filter((w) => w.level === 'error' && !w.message.includes('enter it manually')));
@@ -82,10 +83,12 @@
                     type="number"
                     inputmode="decimal"
                     step="0.01"
-                    placeholder="INR per {m.currency}"
+                    min="0"
+                    placeholder={quotedPer(m.currency) === 100 ? `INR per 100 ${m.currency}` : `INR per ${m.currency}`}
                     value={app.rateOverrides[`${m.currency}|${m.date}`] ?? ''}
                     onchange={(e) => (app.rateOverrides = { ...app.rateOverrides, [`${m.currency}|${m.date}`]: e.currentTarget.value })}
                   />
+                  {#if quotedPer(m.currency) === 100}<small>Per 100 {m.currency}, as SBI quotes it</small>{/if}
                 </label>
               {/each}
             </div>

@@ -3,7 +3,7 @@ import type { FlexData } from '../lib/flex/model';
 import { DEFAULT_SETTINGS, type Settings } from '../lib/tax/common';
 import { accountsIn, buildReport, currenciesIn, sectionChecklist, type Report } from '../lib/tax/engine';
 import { Fx, type RateOverrides } from '../lib/tax/fx';
-import { taxYear } from '../lib/tax/years';
+import { defaultAy, taxYear } from '../lib/tax/years';
 import type { EntityOverrides } from '../lib/export/pack';
 import { BASE, persist, store } from '../lib/ui/format';
 import { entityFor } from '../lib/assets';
@@ -42,10 +42,12 @@ class AppState {
   data = $state.raw<FlexData | null>(null);
   fx = $state.raw<Fx | null>(null);
   busy = $state(false);
+  /** Why the last upload could not be processed (e.g. exchange rates failed to load). */
+  loadError = $state('');
   isSample = $state(false);
 
-  /** Tax year 2026-27 (assessment year 2027-28) unless the user picks another. */
-  ay = $state(2027);
+  /** The return whose filing window is open today, unless the user picks another. */
+  ay = $state(defaultAy());
   accountId = $state('');
   settings = $state<Settings>(store('settings', DEFAULT_SETTINGS));
   rateOverrides = $state<RateOverrides>({});
@@ -124,6 +126,10 @@ class AppState {
     await this.ingest([...keep, ...incoming]);
   }
 
+  retry() {
+    if (this.files.length) this.ingest(this.files);
+  }
+
   removeFile(name: string) {
     const rest = this.files.filter((f) => f.name !== name);
     if (rest.length) this.ingest(rest);
@@ -150,11 +156,13 @@ class AppState {
     this.copied = {};
     this.downloaded = {};
     this.isSample = false;
+    this.loadError = '';
     this.go('setup');
   }
 
   private async ingest(next: LoadedFile[]) {
     this.busy = true;
+    this.loadError = '';
     try {
       const merged = emptyFlexData();
       const files: LoadedFile[] = [];
@@ -175,6 +183,8 @@ class AppState {
       this.data = merged;
       const ids = accountsIn(merged).map((a) => a.accountId);
       if (!ids.includes(this.accountId)) this.accountId = ids[0] ?? '';
+    } catch (e) {
+      this.loadError = (e as Error).message;
     } finally {
       this.busy = false;
     }

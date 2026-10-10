@@ -107,8 +107,13 @@ describe('Table F accrual', () => {
     expect(run([-80, 100, 30, 0, 0])).toEqual([0, 20, 30, 0, 0]);
   });
 
-  it('nets a later loss against what is left to report, never negative', () => {
-    expect(run([100, -150, 70, 0, 0])).toEqual([100, 0, 0, 0, 0]);
+  it('nets a later loss against earlier gains so the total matches the net gain', () => {
+    expect(run([100, -150, 70, 0, 0])).toEqual([0, 0, 20, 0, 0]);
+    expect(run([100, -30, 0, 0, 0])).toEqual([70, 0, 0, 0, 0]);
+  });
+
+  it('reports nothing when the year ends in a net loss', () => {
+    expect(run([50, -80, 10, 0, 0])).toEqual([0, 0, 0, 0, 0]);
   });
 });
 
@@ -237,5 +242,15 @@ describe('address book', () => {
     const own = entityFor('VWRA', 'IE00BK5BQT80', 'VANG FTSE AW USDA', { VWRA: { address: 'Elsewhere 1' } });
     expect(own).toMatchObject({ source: 'you', address: 'Elsewhere 1', zip: 'D02 R296' });
     expect(entityFor('XYZ', 'US0000000000', 'XYZ CORP', {}).source).toBe('missing');
+  });
+});
+
+describe('defaultAy', () => {
+  it('picks the year whose filing window is open', async () => {
+    const { defaultAy } = await import('./years');
+    expect(defaultAy(new Date(2026, 9, 10))).toBe(2026); // Oct 2026 → AY 2026-27
+    expect(defaultAy(new Date(2027, 2, 31))).toBe(2026); // revised window to 31 Mar 2027
+    expect(defaultAy(new Date(2027, 3, 1))).toBe(2027); // Apr 2027 → tax year 2026-27
+    expect(defaultAy(new Date(2030, 5, 1))).toBe(2027); // clamped to supported years
   });
 });
