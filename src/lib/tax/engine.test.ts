@@ -3,7 +3,7 @@ import { describe, expect, it } from 'vitest';
 import { parseFlexXml } from '../flex/parse';
 import { TtbrTable } from '../fx/ttbr';
 import { DEFAULT_SETTINGS } from './common';
-import { accountsIn, buildReport } from './engine';
+import { accountsIn, buildCombinedReport, buildReport } from './engine';
 import { Fx } from './fx';
 import Decimal from 'decimal.js';
 import { nonNegativeAccrual } from './cg';
@@ -261,7 +261,7 @@ describe('AIS foreign-assets check', () => {
   const report = buildReport(data, account, 2026, DEFAULT_SETTINGS, fx, { today: '2026-10-10' });
 
   it('totals the calendar year in the account currency', () => {
-    const a = report.ais;
+    const a = report.ais[0];
     expect(a.calendarYear).toBe('2025');
     expect(a.currency).toBe(account.baseCurrency || 'USD');
     expect(a.dividends.gt(0)).toBe(true);
@@ -270,7 +270,7 @@ describe('AIS foreign-assets check', () => {
 
   it('matches within 1% and flags larger differences', async () => {
     const { compareAis, aisRemark } = await import('./ais');
-    const a = report.ais;
+    const a = report.ais[0];
     const rows = compareAis(a, { dividends: a.dividends.mul(1.005).toFixed(2), interest: a.interest.add(500).toFixed(2) });
     expect(rows.find((r) => r.key === 'dividends')!.matches).toBe(true);
     expect(rows.find((r) => r.key === 'interest')!.matches).toBe(false);
@@ -278,5 +278,40 @@ describe('AIS foreign-assets check', () => {
     expect(aisRemark(a, rows, 'AY 2026-27').length).toBeLessThanOrEqual(400);
     const cash = compareAis(a, { balance: a.cash.toFixed(2) }).find((r) => r.key === 'balance')!;
     expect(cash.cashOnly).toBe(!a.holdings.isZero());
+  });
+});
+
+describe('several IBKR accounts in one return', () => {
+  const read2 = (f: string) => read(`samples/${f}`).replaceAll('U0000000', 'U1111111');
+  const { data, fx } = load();
+  parseFlexXml(read2('sample-cy2025.xml'), 'cy2.xml', data);
+  parseFlexXml(read2('sample-fy2025-26.xml'), 'fy2.xml', data);
+  const accounts = accountsIn(data);
+  const one = buildReport(data, accounts[0], 2026, DEFAULT_SETTINGS, fx, { today: '2026-10-10', combined: true });
+  const both = buildCombinedReport(data, accounts, 2026, DEFAULT_SETTINGS, fx, { today: '2026-10-10' });
+
+  it('finds both accounts', () => {
+    expect(accounts.map((a) => a.accountId).sort()).toEqual(['U0000000', 'U1111111']);
+    expect(both.accountLabel).toContain(' + ');
+  });
+
+  it('pools capital gains, income and Schedule FA', () => {
+    expect(both.cg.rows.length).toBe(one.cg.rows.length * 2);
+    expect(both.cg.stcg.gainInr.toNumber()).toBeCloseTo(one.cg.stcg.gainInr.mul(2).toNumber(), 6);
+    expect(both.income.dividendTotalInr.toNumber()).toBeCloseTo(one.income.dividendTotalInr.mul(2).toNumber(), 6);
+    expect(both.fa.a2.length).toBe(2);
+    expect(both.fa.a3.length).toBe(one.fa.a3.length * 2);
+    expect(both.ais.length).toBe(2);
+  });
+
+  it('recomputes Table F and the foreign tax credit on the pooled figures', () => {
+    const sum = (xs: Decimal[]) => xs.reduce((s, x) => s.add(x), new Decimal(0)).toNumber();
+    expect(sum(both.cg.ltcg.tableF)).toBeCloseTo(Math.max(0, both.cg.ltcg.gainInr.toNumber()), 6);
+    expect(both.foreign.totals.reliefInr.toNumber()).toBeCloseTo(one.foreign.totals.reliefInr.mul(2).toNumber(), 4);
+    expect(both.foreign.tr.length).toBe(one.foreign.tr.length);
+  });
+
+  it('does not warn that another account is missing', () => {
+    expect(both.warnings.some((w) => w.area.startsWith('Accounts'))).toBe(false);
   });
 });

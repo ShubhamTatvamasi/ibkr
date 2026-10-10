@@ -1,7 +1,7 @@
 <script lang="ts">
   import Icon from '../ui/Icon.svelte';
   import CopyButton from '../ui/CopyButton.svelte';
-  import { app } from '../state.svelte';
+  import { ALL_ACCOUNTS, app } from '../state.svelte';
   import { SUPPORTED_AY, taxYear } from '../../lib/tax/years';
   import { coverage } from '../../lib/tax/engine';
   import { BASE, date } from '../../lib/ui/format';
@@ -38,7 +38,7 @@
     return { text: 'Closed — updated return only', tone: 'neutral' };
   }
 
-  const cov = $derived(app.data && app.accounts[0] ? coverage(app.data, app.accountId || app.accounts[0].accountId) : []);
+  const cov = $derived(app.data && app.accounts[0] ? coverage(app.data, app.accounts.some((a) => a.accountId === app.accountId) ? app.accountId : app.accounts[0].accountId) : []);
 
   function segments(from: IsoDate, to: IsoDate) {
     const span = Date.parse(to) - Date.parse(from) + 86_400_000;
@@ -314,15 +314,20 @@
     {/if}
 
     {#if app.accounts.length > 1}
-      <div class="callout warn accounts" role="group" aria-labelledby="acct-h">
-        <Icon name="warn" />
+      <div class="callout info accounts" role="group" aria-labelledby="acct-h">
+        <Icon name="info" />
         <div>
           <b id="acct-h">{app.accounts.length} IBKR accounts found</b>
-          <p>The schedules cover one account at a time. Report every account: add up the CG, OS, FSI and TR amounts, give each account its own Schedule FA A2 row, and list the A3 rows from each.</p>
+          <p>
+            {app.accountId === ALL_ACCOUNTS
+              ? 'They are combined into one return: capital gains, income and the foreign tax credit are pooled, and Schedule FA gets one A2 entry per account.'
+              : 'Showing one account only. Your return must include every account — choose “All accounts” unless you are checking one.'}
+          </p>
           <label class="field acct-pick">
-            <span>Show account</span>
+            <span>Accounts in this return</span>
             <select bind:value={app.accountId}>
-              {#each app.accounts as a}<option value={a.accountId}>{a.accountId}{a.name ? ` · ${a.name}` : ''}</option>{/each}
+              <option value={ALL_ACCOUNTS}>All accounts ({app.accounts.map((a) => a.accountId).join(' + ')})</option>
+              {#each app.accounts as a}<option value={a.accountId}>{a.accountId}{a.name ? ` · ${a.name}` : ''} only</option>{/each}
             </select>
           </label>
         </div>

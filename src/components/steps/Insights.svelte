@@ -25,7 +25,7 @@
   <StatTile icon="globe" label="US-situs assets" value={usd(ins.usSitusUsd.toNumber())} sub="US stocks and US-domiciled ETFs" />
 </section>
 
-<AisCheck />
+{#each r.ais as fig (fig.accountId)}<AisCheck {fig} />{/each}
 
 <div class="grid">
   <section class="card">

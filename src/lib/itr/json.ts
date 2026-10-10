@@ -229,7 +229,7 @@ export function schedulesFile(r: Report, schedules: ItrSchedules, generated: str
       _about: {
         schema: ITR_SCHEMA_VERSION,
         return: r.year.label,
-        account: r.account.accountId,
+        account: r.accountLabel,
         generated,
         note: 'Schedule objects in the official ITR-2 JSON format. Not a complete return: the portal accepts only a full ITR JSON.',
       },

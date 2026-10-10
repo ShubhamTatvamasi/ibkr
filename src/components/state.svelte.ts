@@ -1,7 +1,7 @@
 import { emptyFlexData, parseFlexXml } from '../lib/flex/parse';
 import type { FlexData } from '../lib/flex/model';
 import { DEFAULT_SETTINGS, type Settings } from '../lib/tax/common';
-import { accountsIn, buildReport, currenciesIn, sectionChecklist, type Report } from '../lib/tax/engine';
+import { accountsIn, buildCombinedReport, currenciesIn, sectionChecklist, type Report } from '../lib/tax/engine';
 import { Fx, type RateOverrides } from '../lib/tax/fx';
 import { defaultAy, taxYear } from '../lib/tax/years';
 import type { EntityOverrides } from '../lib/export/pack';
@@ -14,6 +14,8 @@ export interface LoadedFile {
   text: string;
   error?: string;
 }
+
+export const ALL_ACCOUNTS = '*';
 
 export type StepId = 'setup' | 'review' | 'file' | 'insights' | 'downloads';
 export type ScheduleId = 'form67' | 'cg' | 'os' | 'fsi' | 'tr' | 'fa-a2' | 'fa-a3';
@@ -48,6 +50,7 @@ class AppState {
 
   /** The return whose filing window is open today, unless the user picks another. */
   ay = $state(defaultAy());
+  /** One account's ID, or ALL_ACCOUNTS to combine every account into one return. */
   accountId = $state('');
   settings = $state<Settings>(store('settings', DEFAULT_SETTINGS));
   rateOverrides = $state<RateOverrides>({});
@@ -65,11 +68,12 @@ class AppState {
 
   result = $derived.by((): { report?: Report; error?: string } => {
     if (!this.data || !this.fx) return {};
-    const account = this.accounts.find((a) => a.accountId === this.accountId) ?? this.accounts[0];
-    if (!account) return { error: 'No IBKR account found in the uploaded files.' };
+    if (!this.accounts.length) return { error: 'No IBKR account found in the uploaded files.' };
+    const one = this.accounts.find((a) => a.accountId === this.accountId);
+    const accounts = one ? [one] : this.accounts;
     try {
       const overrides = Object.fromEntries(Object.entries(this.rateOverrides).filter(([, v]) => v && Number(v) > 0));
-      return { report: buildReport(this.data, account, this.ay, $state.snapshot(this.settings), this.fx.withOverrides(overrides)) };
+      return { report: buildCombinedReport(this.data, accounts, this.ay, $state.snapshot(this.settings), this.fx.withOverrides(overrides)) };
     } catch (e) {
       return { error: (e as Error).message };
     }
@@ -182,7 +186,7 @@ class AppState {
       this.fx = await Fx.load(currenciesIn(merged), BASE);
       this.data = merged;
       const ids = accountsIn(merged).map((a) => a.accountId);
-      if (!ids.includes(this.accountId)) this.accountId = ids[0] ?? '';
+      if (!ids.includes(this.accountId)) this.accountId = ids.length > 1 ? ALL_ACCOUNTS : (ids[0] ?? '');
     } catch (e) {
       this.loadError = (e as Error).message;
     } finally {

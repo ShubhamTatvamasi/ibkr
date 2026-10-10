@@ -2,10 +2,10 @@
   import Icon from './Icon.svelte';
   import CopyButton from './CopyButton.svelte';
   import { app } from '../state.svelte';
-  import { AIS_LINES, aisRemark, compareAis, type AisLine } from '../../lib/tax/ais';
+  import { AIS_LINES, aisRemark, compareAis, type AisFigures, type AisLine } from '../../lib/tax/ais';
   import { date, money, persist, store } from '../../lib/ui/format';
 
-  const fig = $derived(app.report!.ais);
+  let { fig }: { fig: AisFigures } = $props();
   const key = $derived(`ais:${fig.accountId}:${fig.calendarYear}`);
   let entered = $state<Partial<Record<AisLine, string>>>({});
   $effect(() => {

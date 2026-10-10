@@ -185,7 +185,7 @@ function parseStatement(st: Node, fileName: string, d: FlexData) {
           const date = toIsoDate(a.dateTime) ?? toIsoDate(a.settleDate) ?? toIsoDate(a.reportDate);
           if (!date) continue;
           const key = a.transactionID
-            ? `ct|${a.transactionID}`
+            ? `ct|${a.accountId}|${a.transactionID}`
             : `ct|${a.accountId}|${a.type}|${a.dateTime}|${a.conid}|${a.amount}|${a.description}`;
           if (!once(key)) continue;
           const txn: CashTxn = {
@@ -232,6 +232,8 @@ function parseStatement(st: Node, fileName: string, d: FlexData) {
         break;
       case 'CashReport':
         for (const { attrs: a } of section.children) {
+          // Overlapping files repeat the same period's report; keep one per account, currency and period.
+          if (!once(`cr|${a.accountId}|${a.currency}|${a.levelOfDetail}|${a.fromDate ?? fromDate}|${a.toDate ?? toDate}`)) continue;
           d.cashReports.push({
             accountId: a.accountId ?? accountId,
             currency: a.currency,
@@ -246,7 +248,7 @@ function parseStatement(st: Node, fileName: string, d: FlexData) {
       case 'CorporateActions':
         for (const { attrs: a } of section.children) {
           const date = toIsoDate(a.dateTime) ?? toIsoDate(a.reportDate);
-          if (!date || !once(`ca|${a.transactionID ?? `${a.conid}|${a.dateTime}|${a.type}|${a.quantity}`}`)) continue;
+          if (!date || !once(`ca|${a.accountId}|${a.transactionID ?? `${a.conid}|${a.dateTime}|${a.type}|${a.quantity}`}`)) continue;
           d.corporateActions.push({
             accountId: a.accountId ?? accountId,
             conid: a.conid,
@@ -259,6 +261,7 @@ function parseStatement(st: Node, fileName: string, d: FlexData) {
         break;
       case 'ChangeInDividendAccruals':
         for (const { attrs: a } of section.children) {
+          if (!once(`da|${a.accountId}|${a.conid}|${a.exDate}|${a.payDate}|${a.code ?? ''}|${a.date ?? ''}`)) continue;
           d.dividendAccruals.push({
             accountId: a.accountId ?? accountId,
             conid: a.conid,
@@ -337,10 +340,10 @@ function parseTrades(rows: Node[], accountId: string, d: FlexData, once: (k: str
     if (level === 'EXECUTION' || (tag === 'Trade' && level !== 'CLOSED_LOT')) {
       parent = a;
       addInstrument(d, a);
-      if (EQUITY.has(a.assetCategory) && a.buySell?.startsWith('SELL') && once(`se|${a.tradeID ?? `${a.conid}|${a.dateTime}|${a.quantity}`}`)) d.saleExecutions++;
+      if (EQUITY.has(a.assetCategory) && a.buySell?.startsWith('SELL') && once(`se|${a.accountId}|${a.tradeID ?? `${a.conid}|${a.dateTime}|${a.quantity}`}`)) d.saleExecutions++;
       if (!EQUITY.has(a.assetCategory) && a.assetCategory !== 'CASH') {
         const date = toIsoDate(a.tradeDate) ?? toIsoDate(a.dateTime);
-        if (date && once(`ut|${a.tradeID ?? a.transactionID ?? `${a.conid}|${a.dateTime}|${a.quantity}`}`)) {
+        if (date && once(`ut|${a.accountId}|${a.tradeID ?? a.transactionID ?? `${a.conid}|${a.dateTime}|${a.quantity}`}`)) {
           d.unsupportedTrades.push({ symbol: a.symbol, assetCategory: a.assetCategory, date });
         }
       }

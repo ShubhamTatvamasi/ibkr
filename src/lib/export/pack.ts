@@ -283,7 +283,7 @@ function readme(r: Report, files: PackFile[]): string {
 
   const lines = [
     `IBKR → India tax pack — ${ty.label}`,
-    `Account ${r.account.accountId}. Generated ${new Date().toISOString().slice(0, 10)} in the browser; no data left the device.`,
+    `${r.accounts.length > 1 ? 'Accounts' : 'Account'} ${r.accountLabel}. Generated ${new Date().toISOString().slice(0, 10)} in the browser; no data left the device.`,
     '',
     ...(provisional
       ? [

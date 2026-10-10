@@ -99,7 +99,13 @@ export function income(data: FlexData, account: Account, ty: TaxYear, settings: 
     res.taxes.push({ txn: t, head, country: head === 'interest' ? issuerCountry('US') : countryOf(data, t), conv });
   }
 
-  // Relief per country and head: min(foreign tax, Indian tax on that income, treaty cap).
+  res.ftc = ftcGroups(res, settings, log);
+  return res;
+}
+
+/** Relief per country and head: min(foreign tax, Indian tax on that income, treaty cap). */
+export function ftcGroups(res: Pick<IncomeResult, 'dividends' | 'interest' | 'taxes'>, settings: Settings, log: Collector): FtcCountry[] {
+  const out: FtcCountry[] = [];
   const groups = new Map<string, FtcCountry>();
   const group = (c: Country, head: 'dividend' | 'interest') => {
     const key = `${c.iso}|${head}`;
@@ -136,7 +142,7 @@ export function income(data: FlexData, account: Account, ty: TaxYear, settings: 
         `${g.country.name} ${g.head} withholding exceeds the ${capPct}% treaty rate — the excess is not creditable in India (check that your W-8BEN is on file with IBKR).`,
       );
     }
-    res.ftc.push(g);
+    out.push(g);
   }
-  return res;
+  return out;
 }

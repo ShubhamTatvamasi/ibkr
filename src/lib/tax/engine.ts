@@ -1,12 +1,12 @@
 import Decimal from 'decimal.js';
 import { daysBetween, formatDate, type IsoDate } from '../dates';
 import type { Account, FlexData } from '../flex/model';
-import { capitalGains, type CgResult } from './cg';
+import { capitalGains, nonNegativeAccrual, type CgResult, type CgTotals } from './cg';
 import { Collector, type Settings, type Warning } from './common';
 import { scheduleFA, type FaResult } from './fa';
 import type { Fx } from './fx';
-import { income, type IncomeResult } from './income';
-import { insights, type Insights } from './insights';
+import { ftcGroups, income, type IncomeResult } from './income';
+import { FA_PENALTY_RELIEF_INR, insights, US_ESTATE_EXEMPTION_USD, type Insights } from './insights';
 import { foreignIncome, type ForeignResult } from './foreign';
 import { aisFigures, type AisFigures } from './ais';
 import type { RateUse } from './common';
@@ -14,7 +14,11 @@ import { addDays, taxYear, type TaxYear } from './years';
 
 export interface Report {
   year: TaxYear;
+  /** The first account; `accounts` lists every account combined in this report. */
   account: Account;
+  accounts: Account[];
+  /** "U1234567" or "U1234567 + U7654321". */
+  accountLabel: string;
   settings: Settings;
   fa: FaResult;
   cg: CgResult;
@@ -22,7 +26,7 @@ export interface Report {
   insights: Insights;
   foreign: ForeignResult;
   /** Calendar-year figures as the AIS foreign-assets report shows them. */
-  ais: AisFigures;
+  ais: AisFigures[];
   rates: RateUse[];
   warnings: Warning[];
   missingRates: { currency: string; date: IsoDate }[];
@@ -103,7 +107,7 @@ export function period(cov: { from: IsoDate; to: IsoDate }[], account: Account, 
   return { from, to, needFrom, needTo, inProgress, notApplicable, covered: notApplicable || covers(cov, needFrom, needTo) };
 }
 
-export function buildReport(data: FlexData, account: Account, ayStart: number, settings: Settings, fx: Fx, opts: { today?: IsoDate } = {}): Report {
+export function buildReport(data: FlexData, account: Account, ayStart: number, settings: Settings, fx: Fx, opts: { today?: IsoDate; combined?: boolean } = {}): Report {
   const ty = taxYear(ayStart);
   const log = new Collector();
   const today = opts.today ?? new Date().toISOString().slice(0, 10);
@@ -153,7 +157,7 @@ export function buildReport(data: FlexData, account: Account, ayStart: number, s
     log.add('warn', 'Scope', `Trades in ${cats} were found and are not computed (only stocks and ETFs are). Report them separately with your CA.`);
   }
   const others = accountsIn(data).filter((a) => a.accountId !== account.accountId);
-  if (others.length) {
+  if (others.length && !opts.combined) {
     log.add(
       'warn',
       'Accounts',
@@ -179,34 +183,171 @@ export function buildReport(data: FlexData, account: Account, ayStart: number, s
     log.add('warn', 'Schedule FSI', 'Taxpayer Identification Number is empty. Use your US TIN if you have one, otherwise your passport number (as the official guide allows).');
   }
 
-  const sum = (xs: (Decimal | undefined)[]) => xs.reduce<Decimal>((s, x) => s.add(x ?? 0), new Decimal(0));
   const order = { error: 0, warn: 1, info: 2 };
   return {
     year: ty,
     account,
+    accounts: [account],
+    accountLabel: account.accountId,
     settings,
     fa,
     cg,
     income: inc,
     insights: ins,
     foreign,
-    ais: aisFigures(data, account, ty, fa),
+    ais: [aisFigures(data, account, ty, fa)],
     rates: [...log.rates.values()].sort((a, b) => a.currency.localeCompare(b.currency) || a.requestedDate.localeCompare(b.requestedDate)),
     warnings: [...log.warnings].sort((a, b) => order[a.level] - order[b.level]),
     missingRates: [...log.missingRates.values()].sort((a, b) => a.date.localeCompare(b.date)),
     coverage: cov,
     periods,
-    summary: {
-      stcg: cg.stcg.gainInr,
-      ltcg: cg.ltcg.gainInr,
-      dividends: inc.dividendTotalInr,
-      interest: inc.interestTotalInr,
-      foreignTax: sum(inc.taxes.map((t) => t.conv?.inr)),
-      ftcRelief: foreign.totals.reliefInr,
-      faPeakTotal: sum(fa.a3.map((r) => r.peak?.inr)),
-      faClosingTotal: sum(fa.a3.map((r) => r.closing?.inr)),
-      a3Rows: fa.a3.length,
+    summary: summarise(cg, inc, foreign, fa),
+  };
+}
+
+function summarise(cg: CgResult, inc: IncomeResult, foreign: ForeignResult, fa: FaResult): Report['summary'] {
+  const sum = (xs: (Decimal | undefined)[]) => xs.reduce<Decimal>((s, x) => s.add(x ?? 0), new Decimal(0));
+  return {
+    stcg: cg.stcg.gainInr,
+    ltcg: cg.ltcg.gainInr,
+    dividends: inc.dividendTotalInr,
+    interest: inc.interestTotalInr,
+    foreignTax: sum(inc.taxes.map((t) => t.conv?.inr)),
+    ftcRelief: foreign.totals.reliefInr,
+    faPeakTotal: sum(fa.a3.map((r) => r.peak?.inr)),
+    faClosingTotal: sum(fa.a3.map((r) => r.closing?.inr)),
+    a3Rows: fa.a3.length,
+  };
+}
+
+/**
+ * One return for several IBKR accounts: each account is computed on its own, then capital gains,
+ * income and Schedule FA rows are pooled. Table F, the foreign tax credit (per country and head)
+ * and Schedules FSI/TR are recomputed on the pooled figures; Schedule FA keeps one A2 entry per account.
+ */
+export function buildCombinedReport(data: FlexData, accounts: Account[], ayStart: number, settings: Settings, fx: Fx, opts: { today?: IsoDate } = {}): Report {
+  if (accounts.length === 1) return buildReport(data, accounts[0], ayStart, settings, fx, opts);
+  const parts = accounts.map((a) => buildReport(data, a, ayStart, settings, fx, { ...opts, combined: true }));
+  const first = parts[0];
+  const ty = first.year;
+  const zero = () => new Decimal(0);
+  const add = (xs: Decimal[]) => xs.reduce((s, x) => s.add(x), zero());
+  const addArrays = (xs: Decimal[][]) => xs[0].map((_, i) => add(xs.map((x) => x[i])));
+
+  const totals = (pick: (r: Report) => CgTotals): CgTotals => {
+    const ts = parts.map(pick);
+    const quarters = addArrays(ts.map((t) => t.quarters));
+    return {
+      saleInr: add(ts.map((t) => t.saleInr)),
+      costInr: add(ts.map((t) => t.costInr)),
+      expensesInr: add(ts.map((t) => t.expensesInr)),
+      gainInr: add(ts.map((t) => t.gainInr)),
+      quarters,
+      tableF: nonNegativeAccrual(quarters),
+    };
+  };
+  const cg: CgResult = {
+    rows: parts.flatMap((p) => p.cg.rows).sort((a, b) => a.lot.closeDate.localeCompare(b.lot.closeDate) || a.lot.symbol.localeCompare(b.lot.symbol)),
+    stcg: totals((r) => r.cg.stcg),
+    ltcg: totals((r) => r.cg.ltcg),
+  };
+
+  const log = new Collector();
+  const byDate = <T extends { txn: { date: IsoDate } }>(a: T, b: T) => a.txn.date.localeCompare(b.txn.date);
+  const pooled = {
+    dividends: parts.flatMap((p) => p.income.dividends).sort(byDate),
+    interest: parts.flatMap((p) => p.income.interest).sort(byDate),
+    taxes: parts.flatMap((p) => p.income.taxes).sort(byDate),
+  };
+  const inc: IncomeResult = {
+    ...pooled,
+    dividendQuarters: addArrays(parts.map((p) => p.income.dividendQuarters)),
+    dividendTotalInr: add(parts.map((p) => p.income.dividendTotalInr)),
+    interestTotalInr: add(parts.map((p) => p.income.interestTotalInr)),
+    ftc: ftcGroups(pooled, settings, log),
+  };
+  const foreign = foreignIncome(data, cg, inc, settings);
+
+  const fa: FaResult = {
+    a2: parts.flatMap((p) => p.fa.a2),
+    a3: parts.flatMap((p) => p.fa.a3),
+    snapshotDate: parts.map((p) => p.fa.snapshotDate).filter(Boolean).sort()[0],
+    closeDate: first.fa.closeDate,
+  };
+
+  const ins = parts.map((p) => p.insights);
+  const holdings = ins.flatMap((i) => i.holdings);
+  const sumOpt = (xs: (Decimal | undefined)[]) => xs.reduce<Decimal>((s, x) => s.add(x ?? 0), zero());
+  const usSitusUsd = add(ins.map((i) => i.usSitusUsd));
+  // Each account's peak may fall on a different day; their sum is an upper bound for the combined peak.
+  const faAggregateInr = add(ins.map((i) => i.faAggregateInr));
+  const insights: Insights = {
+    asOf: ins.map((i) => i.asOf).filter(Boolean).sort().at(-1),
+    holdings,
+    totals: { costInr: sumOpt(holdings.map((h) => h.costInr)), valueInr: sumOpt(holdings.map((h) => h.valueInr)), gainInr: sumOpt(holdings.map((h) => h.gainInr)) },
+    turningLongTerm: ins.flatMap((i) => i.turningLongTerm).sort((a, b) => a.daysToLongTerm - b.daysToLongTerm),
+    usSitusUsd,
+    estateExposed: usSitusUsd.gt(US_ESTATE_EXEMPTION_USD),
+    faAggregateInr,
+    faAggregateDate: undefined,
+    faBelowPenaltyThreshold: faAggregateInr.lte(FA_PENALTY_RELIEF_INR),
+    overWithheld: ins.flatMap((i) => i.overWithheld),
+    remittances: {
+      depositsForeign: add(ins.map((i) => i.remittances.depositsForeign)),
+      withdrawalsForeign: add(ins.map((i) => i.remittances.withdrawalsForeign)),
+      currency: first.insights.remittances.currency,
+      count: ins.reduce((s, i) => s + i.remittances.count, 0),
     },
+  };
+
+  // Warnings: shared ones once; ones that only some accounts raise are labelled with the account.
+  const seen = new Map<string, { w: Warning; ids: string[] }>();
+  parts.forEach((p) =>
+    [...p.warnings, ...log.warnings].forEach((w) => {
+      const key = `${w.level}|${w.area}|${w.message}`;
+      const e = seen.get(key) ?? { w, ids: [] };
+      if (!e.ids.includes(p.account.accountId)) e.ids.push(p.account.accountId);
+      seen.set(key, e);
+    }),
+  );
+  const order = { error: 0, warn: 1, info: 2 };
+  const warnings = [...seen.values()]
+    .map(({ w, ids }) => (ids.length === parts.length ? w : { ...w, area: `${w.area} · ${ids.join(', ')}` }))
+    .sort((a, b) => order[a.level] - order[b.level]);
+  if (insights.faAggregateInr.gt(0)) {
+    warnings.push({ level: 'info', area: 'Insights', message: 'With several accounts, the ₹20 lakh test adds up each account\'s own peak — an upper bound, as the peaks may fall on different days.' });
+  }
+
+  const rates = new Map<string, RateUse>();
+  for (const p of parts) for (const r of p.rates) {
+    const key = `${r.currency}|${r.requestedDate}`;
+    const e = rates.get(key);
+    rates.set(key, e ? { ...e, usedFor: new Set([...e.usedFor, ...r.usedFor]) } : r);
+  }
+  const missing = new Map(parts.flatMap((p) => p.missingRates).map((m) => [`${m.currency}|${m.date}`, m]));
+  const earliest = (k: 'fa' | 'fy') => parts.map((p) => p.periods[k]).sort((a, b) => a.needFrom.localeCompare(b.needFrom))[0];
+
+  return {
+    year: ty,
+    account: first.account,
+    accounts,
+    accountLabel: accounts.map((a) => a.accountId).join(' + '),
+    settings,
+    fa,
+    cg,
+    income: inc,
+    insights,
+    foreign,
+    ais: parts.flatMap((p) => p.ais),
+    rates: [...rates.values()].sort((a, b) => a.currency.localeCompare(b.currency) || a.requestedDate.localeCompare(b.requestedDate)),
+    warnings,
+    missingRates: [...missing.values()].sort((a, b) => a.date.localeCompare(b.date)),
+    coverage: first.coverage,
+    periods: {
+      fa: { ...earliest('fa'), inProgress: parts.some((p) => p.periods.fa.inProgress), covered: parts.every((p) => p.periods.fa.covered) },
+      fy: { ...earliest('fy'), inProgress: parts.some((p) => p.periods.fy.inProgress), covered: parts.every((p) => p.periods.fy.covered) },
+    },
+    summary: summarise(cg, inc, foreign, fa),
   };
 }
 

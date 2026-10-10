@@ -39,7 +39,7 @@
     zipping = true;
     try {
       const blob = await zipPack(files);
-      download(`${packPrefix(r)}_ibkr_india_tax_${r.account.accountId}.zip`, blob);
+      download(`${packPrefix(r)}_ibkr_india_tax_${r.accounts.map((a) => a.accountId).join('_')}.zip`, blob);
       app.downloaded = { ...app.downloaded, __zip: new Date().toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' }) };
     } finally {
       zipping = false;
@@ -80,7 +80,7 @@
   <span class="hp-icon"><Icon name="archive" size={28} /></span>
   <div class="hp-main">
     <h2>Your filing pack — {r.year.label}</h2>
-    <p class="num">{files.length} files · {kb(total)} · account {r.account.accountId}</p>
+    <p class="num">{files.length} files · {kb(total)} · {r.accounts.length > 1 ? 'accounts' : 'account'} {r.accountLabel}</p>
     <ul class="inside">
       <li><Icon name="check" size={14} />{count('schedule')} schedule files</li>
       <li><Icon name="check" size={14} />{count('working')} working papers</li>
