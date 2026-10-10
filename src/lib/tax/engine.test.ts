@@ -400,3 +400,16 @@ describe('treaty caps', () => {
     expect(reliefSection('TW')).toBe('90A');
   });
 });
+
+describe('lot matching on the sample', () => {
+  const { data, fx } = load();
+  const account = accountsIn(data)[0];
+  it('gives the same result either way when IBKR already matched first-in, first-out', () => {
+    const fifo = buildReport(data, account, 2026, DEFAULT_SETTINGS, fx, { today: '2026-10-10' });
+    const ibkr = buildReport(data, account, 2026, { ...DEFAULT_SETTINGS, lotMatching: 'ibkr' }, fx, { today: '2026-10-10' });
+    expect(fifo.cg.stcg.gainInr.toNumber()).toBeCloseTo(ibkr.cg.stcg.gainInr.toNumber(), 6);
+    expect(fifo.cg.ltcg.gainInr.toNumber()).toBeCloseTo(ibkr.cg.ltcg.gainInr.toNumber(), 6);
+    expect(fifo.fa.a3.length).toBe(ibkr.fa.a3.length);
+    expect(fifo.warnings.some((w) => w.area === 'Lot matching')).toBe(false);
+  });
+});

@@ -14,6 +14,7 @@ import { addDays, taxYear, type TaxYear } from './years';
 import { splitRatio } from './lots';
 import { applyLotOverrides, lotsToCheck, type LotToCheck } from './lotcheck';
 import { setOffLosses, type LossResult } from './losses';
+import { fifoRematch } from './fifo';
 
 export interface Report {
   year: TaxYear;
@@ -118,7 +119,9 @@ export function period(cov: { from: IsoDate; to: IsoDate }[], account: Account, 
 
 export function buildReport(raw: FlexData, account: Account, ayStart: number, settings: Settings, fx: Fx, opts: { today?: IsoDate; combined?: boolean } = {}): Report {
   const ty = taxYear(ayStart);
-  const data = applyLotOverrides(raw, settings.lotOverrides ?? {});
+  const corrected = applyLotOverrides(raw, settings.lotOverrides ?? {});
+  const fifo = fifoRematch(corrected, account.accountId);
+  const data = (settings.lotMatching ?? 'fifo') === 'fifo' ? fifo.data : corrected;
   const toCheck = lotsToCheck(raw, account, ty, settings.lotOverrides ?? {});
   const log = new Collector();
   const today = opts.today ?? new Date().toISOString().slice(0, 10);
@@ -176,6 +179,16 @@ export function buildReport(raw: FlexData, account: Account, ayStart: number, se
     );
   }
   corporateActionNotes(data, account, ty, log);
+  if ((settings.lotMatching ?? 'fifo') === 'fifo') {
+    if (fifo.rematched.length) {
+      log.add('info', 'Lot matching', `IBKR matched some sales of ${fifo.rematched.join(', ')} to lots other than the oldest. They are re-matched first-in, first-out, as Indian practice requires for identical shares — so dates, costs and gains differ from IBKR's statement. You can switch this under Method choices.`);
+    }
+    for (const s of fifo.skipped) {
+      log.add('warn', 'Lot matching', `${s.symbol}: IBKR didn't match sales first-in, first-out, and they couldn't be re-matched because ${s.reason}. Check the lots with your CA.`);
+    }
+  } else if (fifo.nonFifo.length) {
+    log.add('warn', 'Lot matching', `IBKR matched some sales of ${fifo.nonFifo.join(', ')} to lots other than the oldest. Indian practice is first-in, first-out for identical shares — consider switching under Method choices.`);
+  }
 
   const fa = scheduleFA(data, account, ty, settings, fx, log, periods.fa.inProgress ? periods.fa.needTo : undefined);
   const cg = capitalGains(data, account, ty, settings, fx, log);

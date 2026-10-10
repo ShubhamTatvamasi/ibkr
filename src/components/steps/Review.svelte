@@ -31,6 +31,14 @@
 
   const CHOICES = [
     {
+      key: 'lotMatching' as const,
+      title: 'Which lot a sale comes from',
+      options: [
+        { v: 'fifo', l: 'First in, first out', d: 'The oldest shares are treated as sold first — the order CBDT circulars and tribunals apply to identical shares. Recomputed when IBKR matched differently.' },
+        { v: 'ibkr', l: 'As IBKR matched them', d: 'Uses the lot IBKR chose (for example “specific lot” or “highest cost”). Defensible only if you identified the lot at the time of sale.' },
+      ],
+    },
+    {
       key: 'cgFxMethod' as const,
       title: 'Capital gains: how to convert to rupees',
       options: [
