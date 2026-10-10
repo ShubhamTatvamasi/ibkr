@@ -77,6 +77,8 @@ export interface ItrSchedules {
     TaxReliefOutsideIndiaDTAA: number;
     TaxReliefOutsideIndiaNotDTAA: number;
     TaxPaidOutsideIndFlg: 'YES' | 'NO';
+    AmtTaxRefunded?: number;
+    AssmtYrTaxRelief?: string;
   };
 }
 
@@ -194,7 +196,8 @@ export function itrSchedules(r: Report, entities: EntityOverrides = {}): { sched
     };
   }
 
-  if (foreign.tr.length && r.foreignIncomeTaxable) {
+  const refunds = r.foreignIncomeTaxable ? r.income.refunds : [];
+  if ((foreign.tr.length || refunds.length) && r.foreignIncomeTaxable) {
     // TR must equal the FSI totals per country (validation rules 454-455), so derive it from FSI.
     const fsiRows = schedules.ScheduleFSI?.ScheduleFSIDtls ?? [];
     const rows = foreign.fsi.map((c, i) => ({
@@ -213,8 +216,14 @@ export function itrSchedules(r: Report, entities: EntityOverrides = {}): { sched
       TotalTaxReliefOutsideIndia: total('TaxReliefOutsideIndia'),
       TaxReliefOutsideIndiaDTAA: dtaa,
       TaxReliefOutsideIndiaNotDTAA: total('TaxReliefOutsideIndia') - dtaa,
-      TaxPaidOutsideIndFlg: 'NO',
+      TaxPaidOutsideIndFlg: refunds.length ? 'YES' : 'NO',
     };
+    if (refunds.length) {
+      const amount = refunds.reduce((s, x) => s + int(x.conv?.inr), 0);
+      const ay = refunds.map((x) => x.reliefAy).filter((x): x is number => !!x).sort()[0];
+      Object.assign(schedules.ScheduleTR1, { AmtTaxRefunded: amount, ...(ay ? { AssmtYrTaxRelief: `${ay}-${String((ay + 1) % 100).padStart(2, '0')}` } : {}) });
+      if (!ay) issues.push({ schedule: 'TR', message: 'A foreign tax refund relates to an earlier year not in your files — enter the assessment year of that relief in Schedule TR yourself.' });
+    }
   }
 
   const seen = new Set<string>();

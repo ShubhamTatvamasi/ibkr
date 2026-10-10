@@ -2,7 +2,7 @@ import Decimal from 'decimal.js';
 import type { FlexData } from '../flex/model';
 import type { CgResult } from './cg';
 import type { Settings } from './common';
-import { issuerCountry, reliefSection, TREATY_CAP, type Country } from './countries';
+import { issuerCountry, reliefSection, TREATY_CAP, type Country, type ReliefSection } from './countries';
 import type { IncomeResult } from './income';
 
 /** LTCG on foreign shares: 12.5% plus 4% cess (surcharge ignored), for the "tax payable in India" column. */
@@ -18,7 +18,7 @@ export interface Form67Row {
   article: string;
   dtaaRatePct?: number;
   creditInr: Decimal;
-  section: '90' | '91';
+  section: ReliefSection;
 }
 
 export interface FsiHead {
@@ -39,7 +39,7 @@ export interface FsiCountry {
 export interface ForeignResult {
   form67: Form67Row[];
   fsi: FsiCountry[];
-  tr: { country: Country; taxPaidInr: Decimal; reliefInr: Decimal; section: '90' | '91' }[];
+  tr: { country: Country; taxPaidInr: Decimal; reliefInr: Decimal; section: ReliefSection }[];
   totals: { taxPaidInr: Decimal; reliefInr: Decimal; reliefDtaaInr: Decimal; reliefNonDtaaInr: Decimal };
 }
 
@@ -119,7 +119,7 @@ export function foreignIncome(data: FlexData, cg: CgResult, inc: IncomeResult, s
     totals: {
       taxPaidInr: tr.reduce((s, t) => s.add(t.taxPaidInr), zero()),
       reliefInr: relief(() => true),
-      reliefDtaaInr: relief((t) => t.section === '90'),
+      reliefDtaaInr: relief((t) => t.section !== '91'),
       reliefNonDtaaInr: relief((t) => t.section === '91'),
     },
   };

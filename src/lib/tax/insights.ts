@@ -3,7 +3,7 @@ import type { IsoDate } from '../dates';
 import { daysBetween } from '../dates';
 import type { Account, FlexData } from '../flex/model';
 import type { Collector, Fx } from './common';
-import { issuerCountry, type Country } from './countries';
+import { issuerCountry, TREATY_CAP, type Country } from './countries';
 import type { FaResult } from './fa';
 import { heldAt, buildLedger, unitCostAt } from './lots';
 import { addDays, addMonths, inRange, type TaxYear } from './years';
@@ -13,7 +13,6 @@ export const US_ESTATE_EXEMPTION_USD = 60_000;
 /** Black Money Act: no penalty for non-disclosure when non-immovable foreign assets total ≤ ₹20 lakh. */
 export const FA_PENALTY_RELIEF_INR = 20_00_000;
 /** India–US DTAA rate on portfolio dividends for individuals. */
-const US_TREATY_DIVIDEND = new Decimal(0.25);
 
 export interface Holding {
   symbol: string;
@@ -43,7 +42,7 @@ export interface Insights {
   faAggregateInr: Decimal;
   faAggregateDate?: IsoDate;
   faBelowPenaltyThreshold: boolean;
-  overWithheld: { symbol: string; dividendForeign: Decimal; taxForeign: Decimal; ratePct: Decimal }[];
+  overWithheld: { symbol: string; country: Country; dividendForeign: Decimal; taxForeign: Decimal; ratePct: Decimal; capPct: number }[];
   remittances: { depositsForeign: Decimal; withdrawalsForeign: Decimal; currency: string; count: number };
 }
 
@@ -91,18 +90,19 @@ export function insights(data: FlexData, account: Account, ty: TaxYear, fa: FaRe
 
   // Dividend withholding above the treaty rate usually means a missing or expired W-8BEN.
   const fyCash = data.cash.filter((t) => t.accountId === account.accountId && inRange(t.date, ty.fyStart, ty.fyEnd));
-  const bySymbol = new Map<string, { div: Decimal; tax: Decimal }>();
+  const bySymbol = new Map<string, { div: Decimal; tax: Decimal; country: Country }>();
   for (const t of fyCash) {
     if (!t.symbol || (t.kind !== 'dividend' && t.kind !== 'withholding')) continue;
-    if (issuerCountry(t.issuerCountryCode, t.isin).iso !== 'US') continue;
-    const e = bySymbol.get(t.symbol) ?? { div: new Decimal(0), tax: new Decimal(0) };
+    const c = issuerCountry(t.issuerCountryCode, t.isin);
+    if (!TREATY_CAP[c.iso]) continue;
+    const e = bySymbol.get(t.symbol) ?? { div: new Decimal(0), tax: new Decimal(0), country: c };
     if (t.kind === 'dividend') e.div = e.div.add(t.amount);
     else e.tax = e.tax.sub(t.amount);
     bySymbol.set(t.symbol, e);
   }
   const overWithheld = [...bySymbol.entries()]
-    .filter(([, e]) => e.div.gt(0) && e.tax.div(e.div).gt(US_TREATY_DIVIDEND.add(0.005)))
-    .map(([symbol, e]) => ({ symbol, dividendForeign: e.div, taxForeign: e.tax, ratePct: e.tax.div(e.div).mul(100) }));
+    .map(([symbol, e]) => ({ symbol, country: e.country, dividendForeign: e.div, taxForeign: e.tax, ratePct: e.div.gt(0) ? e.tax.div(e.div).mul(100) : new Decimal(0), capPct: TREATY_CAP[e.country.iso].dividend }))
+    .filter((o) => o.dividendForeign.gt(0) && o.ratePct.gt(o.capPct + 0.5));
 
   const transfers = fyCash.filter((t) => t.kind === 'transfer');
   const remittances = {

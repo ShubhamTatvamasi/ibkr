@@ -367,3 +367,36 @@ describe('relief without a tax treaty (section 91)', () => {
     expect(reliefSection('US')).toBe('90');
   });
 });
+
+describe('foreign tax refunded for an earlier year', () => {
+  const { data, fx } = load();
+  const account = accountsIn(data)[0];
+  const original = data.cash.find((t) => t.kind === 'withholding' && t.amount.lt(0) && t.date < '2025-04-01' && t.conid);
+  it('has an earlier-year withholding in the sample', () => expect(original).toBeDefined());
+
+  it('keeps the refund out of this year’s credit and reports it in Schedule TR', async () => {
+    const before = buildReport(data, account, 2026, DEFAULT_SETTINGS, fx, { today: '2026-10-10' });
+    const refund = { ...original!, date: '2025-06-02', amount: original!.amount.neg(), description: `${original!.description} - refund` };
+    data.cash = [...data.cash, refund];
+    const r = buildReport(data, account, 2026, DEFAULT_SETTINGS, fx, { today: '2026-10-10' });
+    expect(r.income.refunds).toHaveLength(1);
+    expect(r.income.refunds[0].reliefAy).toBe(2025);
+    expect(r.foreign.totals.taxPaidInr.toNumber()).toBeCloseTo(before.foreign.totals.taxPaidInr.toNumber(), 6);
+    const { itrSchedules } = await import('../itr/json');
+    const tr = itrSchedules(r, {}).schedules.ScheduleTR1!;
+    expect(tr.TaxPaidOutsideIndFlg).toBe('YES');
+    expect(tr.AssmtYrTaxRelief).toBe('2025-26');
+    expect(tr.AmtTaxRefunded).toBeGreaterThan(0);
+  });
+});
+
+describe('treaty caps', () => {
+  it('knows the portfolio dividend cap and article for common countries', async () => {
+    const { TREATY_CAP, treatyArticle, reliefSection } = await import('./countries');
+    expect(TREATY_CAP.IE.dividend).toBe(10);
+    expect(TREATY_CAP.CA.dividend).toBe(25);
+    expect(treatyArticle('GB', 'dividend')).toBe('Article 11');
+    expect(treatyArticle('DE', 'interest')).toBe('Article 11');
+    expect(reliefSection('TW')).toBe('90A');
+  });
+});

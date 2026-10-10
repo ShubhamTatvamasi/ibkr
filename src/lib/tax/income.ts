@@ -2,7 +2,7 @@ import type { IsoDate } from '../dates';
 import Decimal from 'decimal.js';
 import type { Account, CashTxn, FlexData } from '../flex/model';
 import type { Collector, Conversion, Fx, Settings } from './common';
-import { issuerCountry, reliefSection, TREATY_CAP, type Country } from './countries';
+import { issuerCountry, reliefSection, treatyArticle, TREATY_CAP, type Country, type ReliefSection } from './countries';
 import { inRange, quarterIndex, type TaxYear } from './years';
 
 export interface IncomeRow {
@@ -26,7 +26,7 @@ export interface FtcCountry {
   country: Country;
   head: 'dividend' | 'interest';
   /** Section 90 (treaty) or 91 (no treaty with that country). */
-  section: '90' | '91';
+  section: ReliefSection;
   /** DTAA article; empty under section 91. */
   article: string;
   incomeInr: Decimal;
@@ -36,10 +36,21 @@ export interface FtcCountry {
   reliefInr: Decimal;
 }
 
+/** Foreign tax refunded this year that was withheld (and credited) in an earlier year. */
+export interface TaxRefund {
+  txn: CashTxn;
+  /** The original deduction, when it is in the uploaded files. */
+  original?: CashTxn;
+  /** Assessment year in which relief for the original tax was claimed, if known. */
+  reliefAy?: number;
+  conv?: Conversion;
+}
+
 export interface IncomeResult {
   dividends: IncomeRow[];
   interest: IncomeRow[];
   taxes: TaxRow[];
+  refunds: TaxRefund[];
   dividendQuarters: Decimal[];
   dividendTotalInr: Decimal;
   interestTotalInr: Decimal;
@@ -58,13 +69,50 @@ export function income(data: FlexData, account: Account, ty: TaxYear, settings: 
     dividends: [],
     interest: [],
     taxes: [],
+    refunds: [],
     dividendQuarters: [0, 0, 0, 0, 0].map(() => new Decimal(0)),
     dividendTotalInr: new Decimal(0),
     interestTotalInr: new Decimal(0),
     ftc: [],
   };
 
-  const taxes = inFy.filter((t) => t.kind === 'withholding');
+  // A positive withholding row is a refund. Within the year it just nets off; a refund of tax
+  // withheld in an earlier year doesn't reduce this year's credit — that year's relief is reduced
+  // instead (Schedule TR item 4).
+  const allTaxes = data.cash.filter((t) => t.accountId === account.accountId && t.kind === 'withholding');
+  const earlierRefund = (t: CashTxn): CashTxn | true | undefined => {
+    if (!t.amount.gt(0)) return undefined;
+    const sameYear = inFy.some((w) => w.kind === 'withholding' && w.conid === t.conid && w.amount.eq(t.amount.neg()) && w.date <= t.date);
+    if (sameYear) return undefined;
+    const original = allTaxes.filter((w) => w.conid === t.conid && w.amount.eq(t.amount.neg()) && w.date < ty.fyStart).sort((a, b) => b.date.localeCompare(a.date))[0];
+    if (original) return original;
+    // No matching deduction in the files: earlier-year if nothing was paid on this holding earlier this year.
+    const paidThisYear = inFy.some(
+      (d) => d !== t && d.conid === t.conid && d.date <= t.date && ((d.kind === 'dividend' && d.amount.gt(0)) || (d.kind === 'withholding' && d.amount.lt(0))),
+    );
+    return paidThisYear ? undefined : true;
+  };
+  const taxes: CashTxn[] = [];
+  for (const t of inFy.filter((x) => x.kind === 'withholding')) {
+    const prior = earlierRefund(t);
+    if (!prior) {
+      taxes.push(t);
+      continue;
+    }
+    const original = prior === true ? undefined : prior;
+    const fyOf = (d: string) => (Number(d.slice(5, 7)) >= 4 ? Number(d.slice(0, 4)) : Number(d.slice(0, 4)) - 1);
+    res.refunds.push({
+      txn: t,
+      original,
+      reliefAy: original ? fyOf(original.date) + 1 : undefined,
+      conv: log.convert('Foreign tax credit', () => fx.monthEndBefore(t.amount, t.currency, original?.date ?? t.date)),
+    });
+    log.add(
+      'warn',
+      'Foreign tax refunded',
+      `${t.symbol ?? 'Foreign'} tax of ${t.currency} ${t.amount.toFixed(2)} refunded on ${t.date}${original ? ` was withheld on ${original.date}` : ' relates to an earlier year'}. It is left out of this year's credit; answer “Yes” in Schedule TR item 4, and the relief claimed for that year has to be reduced — tell your CA.`,
+    );
+  }
   const isInterestTax = (t: CashTxn) => !t.conid || /\bINT\b|INTEREST/i.test(t.description);
 
   for (const t of inFy) {
@@ -118,7 +166,7 @@ export function ftcGroups(res: Pick<IncomeResult, 'dividends' | 'interest' | 'ta
         country: c,
         head,
         section: reliefSection(c.iso),
-        article: reliefSection(c.iso) === '91' ? '' : head === 'dividend' ? 'Article 10' : 'Article 11',
+        article: reliefSection(c.iso) === '91' ? '' : treatyArticle(c.iso, head),
         incomeInr: new Decimal(0),
         foreignTaxInr: new Decimal(0),
         indianTaxInr: new Decimal(0),
@@ -143,7 +191,7 @@ export function ftcGroups(res: Pick<IncomeResult, 'dividends' | 'interest' | 'ta
       log.add(
         'warn',
         'Foreign tax credit',
-        `${g.country.name} ${g.head} withholding exceeds the ${capPct}% treaty rate — the excess is not creditable in India (check that your W-8BEN is on file with IBKR).`,
+        `${g.country.name} ${g.head} withholding exceeds the ${capPct}% treaty rate — the excess is not creditable in India. ${g.country.iso === 'US' ? 'Check that your W-8BEN is on file with IBKR (it lapses after three calendar years).' : 'The excess can usually be reclaimed from that country\'s tax authority with a certificate of Indian residence.'}`,
       );
     }
     out.push(g);

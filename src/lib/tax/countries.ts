@@ -66,9 +66,49 @@ export function issuerCountry(explicit?: string, isin?: string): Country {
  */
 export const NO_DTAA = new Set(['KY', 'BM', 'VG', 'JE', 'GG', 'IM', 'BS']);
 
-export const reliefSection = (iso: string): '90' | '91' => (NO_DTAA.has(iso) ? '91' : '90');
 
-/** India's treaty cap on source-country withholding for residents, by DTAA article. */
-export const TREATY_CAP: Record<string, { dividend?: number; interest?: number }> = {
-  US: { dividend: 25, interest: 15 }, // India–US DTAA Art. 10(2)(b), Art. 11(2)
+export type ReliefSection = '90' | '90A' | '91';
+
+/** Taiwan's agreement is with the India-Taipei Association, notified under section 90A. */
+const SECTION_90A = new Set(['TW']);
+
+export const reliefSection = (iso: string): ReliefSection => (NO_DTAA.has(iso) ? '91' : SECTION_90A.has(iso) ? '90A' : '90');
+
+/**
+ * India's treaty caps on source-country withholding for a resident individual holding less than
+ * 10% of the company (portfolio dividends) and for interest on non-bank loans, with the DTAA
+ * articles. Lower rates in some treaties apply only to large corporate holdings or bank loans.
+ * Plain treaty rates are used: MFN reductions apply in India only once separately notified.
+ */
+export const TREATY_CAP: Record<string, { dividend: number; interest: number; dividendArticle?: string; interestArticle?: string }> = {
+  US: { dividend: 25, interest: 15 }, // Art. 10(2)(b), 11(2)(b)
+  GB: { dividend: 10, interest: 15, dividendArticle: 'Article 11', interestArticle: 'Article 12' }, // 15% on dividends from untaxed property income
+  IE: { dividend: 10, interest: 10 },
+  NL: { dividend: 10, interest: 10 },
+  LU: { dividend: 10, interest: 10 },
+  CH: { dividend: 10, interest: 10 },
+  DE: { dividend: 10, interest: 10 },
+  FR: { dividend: 10, interest: 10, dividendArticle: 'Article 11', interestArticle: 'Article 12' }, // 15% once the 2026 protocol is notified
+  CA: { dividend: 25, interest: 15 },
+  JP: { dividend: 10, interest: 10 },
+  SG: { dividend: 15, interest: 15 },
+  HK: { dividend: 5, interest: 10 },
+  AU: { dividend: 15, interest: 15 },
+  CN: { dividend: 10, interest: 10 },
+  TW: { dividend: 12.5, interest: 10 },
+  KR: { dividend: 15, interest: 10 },
+  SE: { dividend: 10, interest: 10 },
+  DK: { dividend: 25, interest: 15 },
+  NO: { dividend: 10, interest: 10 },
+  FI: { dividend: 10, interest: 10 },
+  BE: { dividend: 15, interest: 15 },
+  ES: { dividend: 15, interest: 15 },
+  IT: { dividend: 25, interest: 15 },
+  IL: { dividend: 10, interest: 10 },
 };
+
+/** DTAA article for a head of income with a treaty country. */
+export function treatyArticle(iso: string, head: 'dividend' | 'interest'): string {
+  const t = TREATY_CAP[iso];
+  return (head === 'dividend' ? t?.dividendArticle : t?.interestArticle) ?? (head === 'dividend' ? 'Article 10' : 'Article 11');
+}

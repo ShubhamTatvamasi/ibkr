@@ -71,7 +71,7 @@ export function buildPack(r: Report, entities: EntityOverrides = {}): PackFile[]
     category: 'schedule',
     table: [
       ['Sl. No.', 'Name of the country', 'Source of income', 'Income from outside India', 'Tax paid outside India - Amount', 'Tax paid outside India - Rate (%)', 'Tax payable on such income under normal provisions in India', 'Article No. of DTAA', 'Rate of tax as per DTAA (%)', 'Credit claimed u/s 90 - Amount', 'Credit claimed u/s 91 - Amount', 'Total foreign tax credit claimed'],
-      ...foreign.form67.map((f, i): Cell[] => [i + 1, f.country.name, f.source, rupees(f.incomeInr), rupees(f.taxPaidInr), f.taxRatePct.toFixed(2), rupees(f.indianTaxInr), f.article, f.dtaaRatePct ?? '', f.section === '90' ? rupees(f.creditInr) : 0, f.section === '91' ? rupees(f.creditInr) : 0, rupees(f.creditInr)]),
+      ...foreign.form67.map((f, i): Cell[] => [i + 1, f.country.name, f.source, rupees(f.incomeInr), rupees(f.taxPaidInr), f.taxRatePct.toFixed(2), rupees(f.indianTaxInr), f.article, f.dtaaRatePct ?? '', f.section !== '91' ? rupees(f.creditInr) : 0, f.section === '91' ? rupees(f.creditInr) : 0, rupees(f.creditInr)]),
     ],
   });
 

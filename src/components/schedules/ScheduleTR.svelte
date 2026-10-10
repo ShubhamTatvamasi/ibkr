@@ -4,12 +4,17 @@
   import FieldGroup from '../ui/FieldGroup.svelte';
   import PortalField from '../ui/PortalField.svelte';
   import EmptyState from '../ui/EmptyState.svelte';
+  import Decimal from 'decimal.js';
   import { app } from '../state.svelte';
   import { date, inr, raw } from '../../lib/ui/format';
 
   const r = $derived(app.report!);
   const ty = $derived(r.year);
   const tr = $derived(r.foreign.tr);
+  const refunds = $derived(r.foreignIncomeTaxable ? r.income.refunds : []);
+  const refundInr = $derived(refunds.reduce((s, x) => s.add(x.conv?.inr ?? 0), new Decimal(0)));
+  const reliefAy = $derived(refunds.map((x) => x.reliefAy).filter((x): x is number => !!x).sort()[0]);
+  const ayLabel = (ay: number) => `AY ${ay}-${String((ay + 1) % 100).padStart(2, '0')}`;
   const ids = $derived([...tr.flatMap((t) => [`tr:${t.country.iso}:c`, `tr:${t.country.iso}:d`]), 'tr:2']);
 </script>
 
@@ -23,7 +28,7 @@
   </div>
 </ScheduleHead>
 
-{#if !tr.length}
+{#if !tr.length && !refunds.length}
   <EmptyState title="No relief to claim" text="No foreign tax was paid, so Schedule TR stays empty." />
 {:else}
   {#each tr as t}
@@ -32,12 +37,18 @@
       <PortalField id={`tr:${t.country.iso}:b`} label="(b) Taxpayer Identification Number" display={r.settings.tin || 'Not set'} copy={r.settings.tin || undefined} tone={r.settings.tin ? undefined : 'warn'} text />
       <PortalField id={`tr:${t.country.iso}:c`} label="(c) Total taxes paid outside India" display={inr(t.taxPaidInr)} copy={raw(t.taxPaidInr)} hint="Total of (c) in Schedule FSI" />
       <PortalField id={`tr:${t.country.iso}:d`} label="(d) Total tax relief available" display={inr(t.reliefInr)} copy={raw(t.reliefInr)} hint="Total of (e) in Schedule FSI" />
-      <PortalField id={`tr:${t.country.iso}:e`} label="(e) Tax Relief Claimed under section" display={t.section} copy={t.section} hint={t.section === '90' ? 'Section 90 — India has a tax treaty with this country' : 'Section 91 — no tax treaty with this country'} />
+      <PortalField id={`tr:${t.country.iso}:e`} label="(e) Tax Relief Claimed under section" display={t.section} copy={t.section} hint={t.section === '91' ? 'Section 91 — no tax treaty with this country' : t.section === '90A' ? 'Section 90A — agreement through a specified association' : 'Section 90 — India has a tax treaty with this country'} />
     </FieldGroup>
   {/each}
   <FieldGroup title="Totals">
     <PortalField id="tr:2" label="2 · Total tax relief where DTAA is applicable (section 90/90A)" display={inr(r.foreign.totals.reliefDtaaInr)} copy={raw(r.foreign.totals.reliefDtaaInr)} tone={r.foreign.totals.reliefDtaaInr.isZero() ? 'muted' : undefined} />
     <PortalField id="tr:3" label="3 · Total tax relief where DTAA is not applicable (section 91)" display={inr(r.foreign.totals.reliefNonDtaaInr)} copy={raw(r.foreign.totals.reliefNonDtaaInr)} tone={r.foreign.totals.reliefNonDtaaInr.isZero() ? 'muted' : undefined} />
-    <PortalField id="tr:4" label="4 · Tax paid abroad refunded by the foreign tax authority this year?" display="No" text hint="Yes only if the IRS refunded withholding you claimed earlier" />
+    {#if refunds.length}
+      <PortalField id="tr:4" label="4 · Tax paid abroad refunded by the foreign tax authority this year?" display="Yes" text hint="Withholding from an earlier year was refunded" />
+      <PortalField id="tr:4a" label="4a · Amount of tax refunded" display={inr(refundInr)} copy={raw(refundInr)} hint="At the SBI rate used when the tax was withheld" />
+      <PortalField id="tr:4b" label="4b · Assessment year in which tax relief was allowed in India" display={reliefAy ? ayLabel(reliefAy) : 'Check your earlier return'} copy={reliefAy ? ayLabel(reliefAy).replace('AY ', '') : undefined} tone={reliefAy ? undefined : 'warn'} text />
+    {:else}
+      <PortalField id="tr:4" label="4 · Tax paid abroad refunded by the foreign tax authority this year?" display="No" text hint="Yes only if tax withheld in an earlier year was refunded" />
+    {/if}
   </FieldGroup>
 {/if}

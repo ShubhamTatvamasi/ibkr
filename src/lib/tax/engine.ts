@@ -329,6 +329,7 @@ export function buildCombinedReport(data: FlexData, accounts: Account[], ayStart
   };
   const inc: IncomeResult = {
     ...pooled,
+    refunds: parts.flatMap((p) => p.income.refunds),
     dividendQuarters: addArrays(parts.map((p) => p.income.dividendQuarters)),
     dividendTotalInr: add(parts.map((p) => p.income.dividendTotalInr)),
     interestTotalInr: add(parts.map((p) => p.income.interestTotalInr)),

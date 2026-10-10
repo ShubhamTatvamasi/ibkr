@@ -61,15 +61,15 @@
   </section>
 
   <section class="card">
-    <div class="card-head"><div><h3>Dividend withholding</h3><p>With a valid W-8BEN, US tax on dividends is 25%. Anything above that can't be credited in India.</p></div></div>
+    <div class="card-head"><div><h3>Dividend withholding</h3><p>India's tax treaties cap tax on your dividends (25% in the US with a valid W-8BEN, 10–15% in most of Europe). Anything above the cap can't be credited in India.</p></div></div>
     {#if ins.overWithheld.length}
       <ul class="plain">
         {#each ins.overWithheld as o}
-          <li><Icon name="warn" size={18} /><span><b>{o.symbol}</b> withheld at {o.ratePct.toFixed(1)}% on {money(o.dividendForeign)} — check your W-8BEN in IBKR (it lapses after three calendar years).</span></li>
+          <li><Icon name="warn" size={18} /><span><b>{o.symbol}</b> withheld at {o.ratePct.toFixed(1)}% on {money(o.dividendForeign)}, above the {o.capPct}% treaty rate — {o.country.iso === 'US' ? 'check your W-8BEN in IBKR (it lapses after three calendar years).' : `reclaim the excess from ${o.country.name}'s tax authority.`}</span></li>
         {/each}
       </ul>
     {:else}
-      <p class="empty-line"><Icon name="check-circle" size={18} />All US dividends were withheld at the 25% treaty rate or less.</p>
+      <p class="empty-line"><Icon name="check-circle" size={18} />All dividends were withheld at or below the treaty rate.</p>
     {/if}
   </section>
 
