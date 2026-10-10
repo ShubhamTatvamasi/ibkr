@@ -20,6 +20,8 @@ export interface Settings {
   broughtForward: BroughtForwardLoss[];
   /** Which purchase lot a sale comes from: first-in, first-out (Indian practice) or as IBKR matched it. */
   lotMatching: 'fifo' | 'ibkr';
+  /** Inputs for the old vs new regime estimate (rupees, as typed). */
+  regimeInputs: { salary: string; otherIncome: string; oldDeductions: string };
   /** Return filed (or to be filed) by the s.139(1) due date; a belated return can't carry this year's loss forward. */
   filedByDueDate: boolean;
 }
@@ -54,6 +56,7 @@ export const DEFAULT_SETTINGS: Settings = {
   broughtForward: [],
   // CBDT Circulars 704/768 and case law apply first-in, first-out to fungible shares.
   lotMatching: 'fifo',
+  regimeInputs: { salary: '', otherIncome: '', oldDeductions: '' },
   filedByDueDate: true,
 };
 

@@ -3,6 +3,7 @@
   import StatTile from '../ui/StatTile.svelte';
   import Meter from '../ui/Meter.svelte';
   import AisCheck from '../ui/AisCheck.svelte';
+  import Planning from '../ui/Planning.svelte';
   import { app } from '../state.svelte';
   import { date, inr, money, num } from '../../lib/ui/format';
   import { FA_PENALTY_RELIEF_INR, US_ESTATE_EXEMPTION_USD } from '../../lib/tax/insights';
@@ -86,6 +87,8 @@
     {/if}
   </section>
 </div>
+
+<Planning />
 
 <div class="table-caption"><div><h3>Open lots</h3><p>Rupee cost at the SBI rate on each purchase date; value at the latest price and rate.</p></div></div>
 <div class="table-wrap">
