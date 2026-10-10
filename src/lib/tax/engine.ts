@@ -8,6 +8,7 @@ import type { Fx } from './fx';
 import { income, type IncomeResult } from './income';
 import { insights, type Insights } from './insights';
 import { foreignIncome, type ForeignResult } from './foreign';
+import { aisFigures, type AisFigures } from './ais';
 import type { RateUse } from './common';
 import { addDays, taxYear, type TaxYear } from './years';
 
@@ -20,6 +21,8 @@ export interface Report {
   income: IncomeResult;
   insights: Insights;
   foreign: ForeignResult;
+  /** Calendar-year figures as the AIS foreign-assets report shows them. */
+  ais: AisFigures;
   rates: RateUse[];
   warnings: Warning[];
   missingRates: { currency: string; date: IsoDate }[];
@@ -187,6 +190,7 @@ export function buildReport(data: FlexData, account: Account, ayStart: number, s
     income: inc,
     insights: ins,
     foreign,
+    ais: aisFigures(data, account, ty, fa),
     rates: [...log.rates.values()].sort((a, b) => a.currency.localeCompare(b.currency) || a.requestedDate.localeCompare(b.requestedDate)),
     warnings: [...log.warnings].sort((a, b) => order[a.level] - order[b.level]),
     missingRates: [...log.missingRates.values()].sort((a, b) => a.date.localeCompare(b.date)),

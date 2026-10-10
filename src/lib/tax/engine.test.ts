@@ -254,3 +254,29 @@ describe('defaultAy', () => {
     expect(defaultAy(new Date(2030, 5, 1))).toBe(2027); // clamped to supported years
   });
 });
+
+describe('AIS foreign-assets check', () => {
+  const { data, fx } = load();
+  const account = accountsIn(data)[0];
+  const report = buildReport(data, account, 2026, DEFAULT_SETTINGS, fx, { today: '2026-10-10' });
+
+  it('totals the calendar year in the account currency', () => {
+    const a = report.ais;
+    expect(a.calendarYear).toBe('2025');
+    expect(a.currency).toBe(account.baseCurrency || 'USD');
+    expect(a.dividends.gt(0)).toBe(true);
+    expect(a.balance.toNumber()).toBeCloseTo(a.cash.add(a.holdings).toNumber());
+  });
+
+  it('matches within 1% and flags larger differences', async () => {
+    const { compareAis, aisRemark } = await import('./ais');
+    const a = report.ais;
+    const rows = compareAis(a, { dividends: a.dividends.mul(1.005).toFixed(2), interest: a.interest.add(500).toFixed(2) });
+    expect(rows.find((r) => r.key === 'dividends')!.matches).toBe(true);
+    expect(rows.find((r) => r.key === 'interest')!.matches).toBe(false);
+    expect(rows.find((r) => r.key === 'balance')!.theirs).toBeUndefined();
+    expect(aisRemark(a, rows, 'AY 2026-27').length).toBeLessThanOrEqual(400);
+    const cash = compareAis(a, { balance: a.cash.toFixed(2) }).find((r) => r.key === 'balance')!;
+    expect(cash.cashOnly).toBe(!a.holdings.isZero());
+  });
+});

@@ -2,6 +2,7 @@
   import Icon from '../ui/Icon.svelte';
   import StatTile from '../ui/StatTile.svelte';
   import Meter from '../ui/Meter.svelte';
+  import AisCheck from '../ui/AisCheck.svelte';
   import { app } from '../state.svelte';
   import { date, inr, money, num } from '../../lib/ui/format';
   import { FA_PENALTY_RELIEF_INR, US_ESTATE_EXEMPTION_USD } from '../../lib/tax/insights';
@@ -23,6 +24,8 @@
   <StatTile icon="clock" label="Turning long-term soon" value={String(ins.turningLongTerm.length)} sub="lots within 120 days" />
   <StatTile icon="globe" label="US-situs assets" value={usd(ins.usSitusUsd.toNumber())} sub="US stocks and US-domiciled ETFs" />
 </section>
+
+<AisCheck />
 
 <div class="grid">
   <section class="card">
