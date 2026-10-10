@@ -88,7 +88,7 @@ export function buildPack(r: Report, entities: EntityOverrides = {}): PackFile[]
       cgRow('b(iii) Expenditure wholly and exclusively in connection with transfer', cg.stcg.expensesInr, cg.ltcg.expensesInr),
       cgRow('b(iv) Total', cg.stcg.costInr.add(cg.stcg.expensesInr), cg.ltcg.costInr.add(cg.ltcg.expensesInr)),
       cgRow('c Balance', cg.stcg.gainInr, cg.ltcg.gainInr),
-      ...QUARTER_LABELS.map((q, i) => cgRow(`Table F — ${q}`, cg.stcg.tableF[i], cg.ltcg.tableF[i])),
+      ...QUARTER_LABELS.map((q, i) => cgRow(`Table F — ${q}`, r.losses.tableF.stcg[i], r.losses.tableF.ltcg[i])),
     ],
   });
 

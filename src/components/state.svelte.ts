@@ -7,6 +7,7 @@ import { defaultAy, taxYear } from '../lib/tax/years';
 import type { EntityOverrides } from '../lib/export/pack';
 import { BASE, persist, store } from '../lib/ui/format';
 import { entityFor } from '../lib/assets';
+import { applyYearEnd, parseYearEnd } from '../lib/export/yearend';
 
 export interface LoadedFile {
   name: string;
@@ -128,6 +129,20 @@ class AppState {
     const keep = this.isSample ? [] : this.files.filter((f) => !incoming.some((i) => i.name === f.name));
     this.isSample = false;
     await this.ingest([...keep, ...incoming]);
+  }
+
+  /** Loads last year's year-end file: losses to bring forward, lot corrections, addresses, choices. */
+  loadYearEnd(text: string): string[] {
+    const f = parseYearEnd(text);
+    const { settings, notes } = applyYearEnd($state.snapshot(this.settings) as Settings, f, this.ay);
+    this.settings = settings;
+    const restored = Object.keys(f.entities ?? {}).filter((k) => !this.entities[k]);
+    if (restored.length) {
+      this.entities = { ...f.entities, ...this.entities };
+      persist('entities', $state.snapshot(this.entities));
+      notes.push(`Restored ${restored.length} company address(es).`);
+    }
+    return notes;
   }
 
   retry() {

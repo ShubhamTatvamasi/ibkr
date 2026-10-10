@@ -10,6 +10,22 @@
   const today = new Date().toISOString().slice(0, 10);
   let dragging = $state(false);
   let input: HTMLInputElement;
+  let yearEndInput: HTMLInputElement | undefined = $state();
+  let carryNotes = $state<string[]>([]);
+  let carryError = $state('');
+
+  async function loadCarry(file: File | undefined) {
+    carryNotes = [];
+    carryError = '';
+    if (!file) return;
+    try {
+      carryNotes = app.loadYearEnd(await file.text());
+    } catch (e) {
+      carryError = (e as Error).message;
+    } finally {
+      if (yearEndInput) yearEndInput.value = '';
+    }
+  }
 
   const PROMPT =
     'Name IndiaTax, XML, all fields: Trades (Execution, Closed Lots), Open Positions (Lot), Cash Transactions, Prior Period Positions, Statement of Funds, Account Information, Financial Instrument Info, Corporate Actions, Transfers, Change in Dividend Accruals';
@@ -383,6 +399,17 @@
         <small>Only needed if you have foreign income (dividends, interest or capital gains) — for Schedules FSI and TR. IBKR doesn't report it; without a US TIN, use your passport number.</small>
       </label>
     </div>
+    <div class="carry">
+      <span class="carry-icon"><Icon name="refresh" size={20} /></span>
+      <div>
+        <b>Used this tool last year?</b>
+        <p class="faint">Load the year-end file you saved then: unused capital losses, lot corrections, company addresses and method choices carry over.</p>
+        {#if carryNotes.length}<ul class="carry-notes">{#each carryNotes as n}<li><Icon name="check" size={14} />{n}</li>{/each}</ul>{/if}
+        {#if carryError}<p class="carry-err" role="alert">{carryError}</p>{/if}
+      </div>
+      <input bind:this={yearEndInput} type="file" accept=".json,application/json" hidden onchange={(e) => loadCarry(e.currentTarget.files?.[0])} />
+      <button class="btn sm" onclick={() => yearEndInput?.click()}><Icon name="upload" size={16} />Load year-end file</button>
+    </div>
   </section>
 
   {#if app.result.error}
@@ -398,6 +425,14 @@
 
 <style>
   .hero { padding: 8px 0 32px; max-width: 760px; }
+  .carry { display: grid; grid-template-columns: 24px 1fr auto; gap: 12px; align-items: start; margin-top: 20px; padding-top: 16px; border-top: 1px solid var(--border); }
+  .carry b { font-size: var(--fs-ui); }
+  .carry p { font-size: 13px; margin-top: 2px; }
+  .carry-icon { color: var(--accent); }
+  .carry-notes { list-style: none; margin: 8px 0 0; padding: 0; display: grid; gap: 4px; font-size: 13px; color: var(--success-text); }
+  .carry-notes li { display: flex; gap: 6px; align-items: center; }
+  .carry-err { color: var(--danger-text); }
+  @media (max-width: 560px) { .carry { grid-template-columns: 24px 1fr; } .carry .btn { grid-column: 2; justify-self: start; } }
   .hero h1 { font-size: var(--fs-display); line-height: 1.1; letter-spacing: -0.02em; margin: 16px 0 14px; }
   .lead { font-size: 1.0625rem; color: var(--text-2); max-width: 64ch; }
   .hero-actions { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 24px; }

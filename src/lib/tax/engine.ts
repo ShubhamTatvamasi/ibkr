@@ -13,6 +13,7 @@ import type { RateUse } from './common';
 import { addDays, taxYear, type TaxYear } from './years';
 import { splitRatio } from './lots';
 import { applyLotOverrides, lotsToCheck, type LotToCheck } from './lotcheck';
+import { setOffLosses, type LossResult } from './losses';
 
 export interface Report {
   year: TaxYear;
@@ -29,6 +30,8 @@ export interface Report {
   foreign: ForeignResult;
   /** Calendar-year figures as the AIS foreign-assets report shows them. */
   ais: AisFigures[];
+  /** Set-off of this year's and brought-forward capital losses, and what carries forward. */
+  losses: LossResult;
   /** Lots without a cost, or dated on a transfer in, for the user to correct. */
   lotsToCheck: LotToCheck[];
   rates: RateUse[];
@@ -206,6 +209,7 @@ export function buildReport(raw: FlexData, account: Account, ayStart: number, se
     foreign,
     ais: [aisFigures(data, account, ty, fa)],
     lotsToCheck: toCheck,
+    losses: setOffLosses(cg, ayStart, settings.broughtForward ?? [], settings.filedByDueDate ?? true),
     rates: [...log.rates.values()].sort((a, b) => a.currency.localeCompare(b.currency) || a.requestedDate.localeCompare(b.requestedDate)),
     warnings: [...log.warnings].sort((a, b) => order[a.level] - order[b.level]),
     missingRates: [...log.missingRates.values()].sort((a, b) => a.date.localeCompare(b.date)),
@@ -400,6 +404,7 @@ export function buildCombinedReport(data: FlexData, accounts: Account[], ayStart
     foreign,
     ais: parts.flatMap((p) => p.ais),
     lotsToCheck: parts.flatMap((p) => p.lotsToCheck),
+    losses: setOffLosses(cg, ayStart, settings.broughtForward ?? [], settings.filedByDueDate ?? true),
     rates: [...rates.values()].sort((a, b) => a.currency.localeCompare(b.currency) || a.requestedDate.localeCompare(b.requestedDate)),
     warnings,
     missingRates: [...missing.values()].sort((a, b) => a.date.localeCompare(b.date)),

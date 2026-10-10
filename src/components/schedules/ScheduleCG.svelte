@@ -13,6 +13,22 @@
   const cg = $derived(r.cg);
   const ty = $derived(r.year);
   let open = $state<Record<number, boolean>>({});
+  const L = $derived(r.losses);
+  const setOffApplied = $derived(L.cyla.length + L.bfla.length > 0);
+  const ayLabel = (ay: number) => `AY ${ay}-${String((ay + 1) % 100).padStart(2, '0')}`;
+  const pastYears = $derived(Array.from({ length: 8 }, (_, i) => ty.ayStart - 1 - i));
+
+  function addLoss() {
+    const used = new Set(app.settings.broughtForward.map((b) => b.ay));
+    const ay = pastYears.find((y) => !used.has(y)) ?? pastYears[0];
+    app.settings.broughtForward = [...app.settings.broughtForward, { ay, stcl: '', ltcl: '' }];
+  }
+  function setLoss(i: number, field: 'ay' | 'stcl' | 'ltcl', value: string) {
+    app.settings.broughtForward = app.settings.broughtForward.map((b, j) => (j === i ? { ...b, [field]: field === 'ay' ? Number(value) : value.replace(/,/g, '') } : b));
+  }
+  function removeLoss(i: number) {
+    app.settings.broughtForward = app.settings.broughtForward.filter((_, j) => j !== i);
+  }
 
   const sections = $derived(
     [
@@ -56,9 +72,10 @@
         />
       {/each}
     </FieldGroup>
-    <FieldGroup title={`Table F — ${s.key === 'a5' ? 'Short-term capital gains taxable at applicable rates' : 'Long-term capital gains taxable at the rate of 12.5%'}`} sub="Information about accrual/receipt of capital gain · by date of sale">
+    <FieldGroup title={`Table F — ${s.key === 'a5' ? 'Short-term capital gains taxable at applicable rates' : 'Long-term capital gains taxable at the rate of 12.5%'}`} sub="Information about accrual/receipt of capital gain · by date of sale{setOffApplied ? ' · after setting off losses' : ''}">
       {#each QUARTER_LABELS as q, i}
-        <PortalField id={`cg:${s.key}:q${i}`} label={q} display={inr(s.t.tableF[i])} copy={raw(s.t.tableF[i])} tone={s.t.tableF[i].isZero() ? 'muted' : undefined} />
+        {@const v = (s.key === 'a5' ? r.losses.tableF.stcg : r.losses.tableF.ltcg)[i]}
+        <PortalField id={`cg:${s.key}:q${i}`} label={q} display={inr(v)} copy={raw(v)} tone={v.isZero() ? 'muted' : undefined} />
       {/each}
     </FieldGroup>
   {/each}
@@ -122,9 +139,77 @@
   </div>
 {/if}
 
+<section class="losses card" aria-labelledby="losses-h">
+  <div class="card-head">
+    <div>
+      <h3 id="losses-h">Losses — set-off and carry forward</h3>
+      <p>Schedules CYLA, BFLA and CFL. A short-term loss can reduce any capital gain; a long-term loss only long-term gains. Unused losses carry forward for 8 years, only if the return of the year of loss was filed by the due date.</p>
+    </div>
+  </div>
+
+  <div class="bf">
+    <b class="bf-h">Losses brought forward from earlier years</b>
+    <p class="faint">From Schedule CFL of last year's return (or load last year's year-end file on the Downloads page).</p>
+    {#each app.settings.broughtForward as b, i}
+      <div class="bf-row">
+        <label class="field"><span>Year of loss</span>
+          <select value={b.ay} onchange={(e) => setLoss(i, 'ay', e.currentTarget.value)}>
+            {#each [...new Set([b.ay, ...pastYears])].sort((x, y) => y - x) as y}<option value={y}>{ayLabel(y)}</option>{/each}
+          </select>
+        </label>
+        <label class="field"><span>Short-term loss (₹)</span><input inputmode="numeric" value={b.stcl} onchange={(e) => setLoss(i, 'stcl', e.currentTarget.value)} /></label>
+        <label class="field"><span>Long-term loss (₹)</span><input inputmode="numeric" value={b.ltcl} onchange={(e) => setLoss(i, 'ltcl', e.currentTarget.value)} /></label>
+        <button class="btn ghost sm icon-only" aria-label={`Remove ${ayLabel(b.ay)} loss`} onclick={() => removeLoss(i)}><Icon name="trash" size={16} /></button>
+      </div>
+    {/each}
+    <button class="btn sm" onclick={addLoss}><Icon name="plus" size={16} />Add a year</button>
+    <label class="check"><input type="checkbox" bind:checked={app.settings.filedByDueDate} /> This return is filed by the due date ({date(`${ty.ayStart}-07-31`)}) — or is a revision of one that was</label>
+  </div>
+
+  {#if setOffApplied || L.carryForward.length || L.expired.length || L.currentLossLapses}
+    <div class="table-wrap">
+      <table class="data">
+        <thead><tr><th>Step</th><th class="r">Short-term (₹)</th><th class="r">Long-term (₹)</th></tr></thead>
+        <tbody>
+          <tr><td>Net gain from this year's sales</td><td class="r" class:neg={L.netStcg.lt(0)}>{inr(L.netStcg)}</td><td class="r" class:neg={L.netLtcg.lt(0)}>{inr(L.netLtcg)}</td></tr>
+          {#each L.cyla as c}<tr><td>CYLA · this year's short-term loss set off</td><td class="r"></td><td class="r neg">−{inr(c.amount)}</td></tr>{/each}
+          {#each L.bfla as b}<tr><td>BFLA · {b.kind === 'STCL' ? 'short' : 'long'}-term loss of {ayLabel(b.ay)}</td><td class="r neg">{b.against === 'STCG' ? `−${inr(b.amount)}` : ''}</td><td class="r neg">{b.against === 'LTCG' ? `−${inr(b.amount)}` : ''}</td></tr>{/each}
+        </tbody>
+        <tfoot><tr><td>Taxable after set-off</td><td class="r">{inr(L.taxableStcg)}</td><td class="r">{inr(L.taxableLtcg)}</td></tr></tfoot>
+      </table>
+    </div>
+    {#if L.carryForward.length}
+      <h4 class="cf-h">Schedule CFL — carried forward to next year</h4>
+      <div class="table-wrap">
+        <table class="data">
+          <thead><tr><th>Year of loss</th><th class="r">Short-term (₹)</th><th class="r">Long-term (₹)</th><th>Usable until</th></tr></thead>
+          <tbody>{#each L.carryForward as c}<tr><td>{ayLabel(c.ay)}</td><td class="r">{inr(c.stcl)}</td><td class="r">{inr(c.ltcl)}</td><td>{ayLabel(c.usableUntilAy)}</td></tr>{/each}</tbody>
+        </table>
+      </div>
+    {/if}
+    {#if L.currentLossLapses}<p class="note warn-t"><Icon name="warn" size={16} />This year's loss can't be carried forward because the return is belated (section 80). It still reduces this year's other capital gains.</p>{/if}
+    {#if L.expired.length}<p class="note"><Icon name="info" size={16} />Dropped as older than 8 years: {L.expired.map((e) => ayLabel(e.ay)).join(', ')}.</p>{/if}
+  {/if}
+  <p class="note"><Icon name="info" size={16} />Covers your IBKR gains only. If you also have Indian capital gains or losses, the ITR utility combines them in CYLA and BFLA — use these figures as a check.</p>
+</section>
+
 <style>
   .calc { display: grid; grid-template-columns: 90px 1fr; gap: 4px 12px; margin: 0; }
   .calc dt { color: var(--text-3); }
   .calc dd { margin: 0; color: var(--text); }
   .sym + .badge { margin-left: 6px; }
+  .losses { margin-top: 24px; display: grid; gap: 14px; }
+  .losses .card-head { margin-bottom: 0; }
+  .losses .table-wrap { max-height: none; }
+  .bf { display: grid; gap: 10px; justify-items: start; }
+  .bf-h { font-size: var(--fs-ui); }
+  .bf > p { font-size: 13px; margin-top: -6px; }
+  .bf-row { display: grid; grid-template-columns: 170px 1fr 1fr auto; gap: 10px; align-items: end; width: 100%; max-width: 640px; }
+  .check { display: flex; gap: 8px; align-items: center; font-size: 13px; color: var(--text-2); }
+  .check input { width: 16px; height: 16px; }
+  .cf-h { font-size: var(--fs-ui); margin: 4px 0 -4px; }
+  .note { display: flex; gap: 8px; align-items: flex-start; font-size: 13px; color: var(--text-2); }
+  .warn-t { color: var(--warn-text); }
+  .neg { color: var(--danger-text); }
+  @media (max-width: 560px) { .bf-row { grid-template-columns: 1fr 1fr; } }
 </style>

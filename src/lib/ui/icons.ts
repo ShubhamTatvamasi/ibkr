@@ -45,6 +45,7 @@ export const ICONS: Record<string, string> = {
   flag: '<path d="M4.5 17.25V3.5M4.5 3.5h9l-1.5 3.25 1.5 3.25h-9"/>',
   refresh: '<path d="M16 10a6 6 0 1 1-1.76-4.24M16.25 3.75v3.5h-3.5"/>',
   trash: '<path d="M3.75 5.5h12.5M8 5.5V3.75h4V5.5M5.25 5.5l.75 11h8l.75-11"/>',
+  plus: '<path d="M10 4.5v11M4.5 10h11"/>',
   lock: '<rect x="4.25" y="8.75" width="11.5" height="8.5" rx="1.5"/><path d="M6.75 8.75V6.5a3.25 3.25 0 0 1 6.5 0v2.25"/>',
 };
 

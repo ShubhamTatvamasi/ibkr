@@ -4,6 +4,7 @@
   import { app } from '../state.svelte';
   import { buildPack, byteSize, packPrefix, zipPack, type PackCategory, type PackFile } from '../../lib/export/pack';
   import { download } from '../../lib/ui/format';
+  import { buildYearEnd } from '../../lib/export/yearend';
 
   const r = $derived(app.report!);
   const files = $derived(buildPack(r, app.entities));
@@ -49,6 +50,12 @@
   function downloadOne(f: PackFile) {
     download(f.name, new Blob([f.content], { type: f.name.endsWith('.csv') ? 'text/csv;charset=utf-8' : 'text/plain;charset=utf-8' }));
     app.downloaded = { ...app.downloaded, [f.name]: 'yes' };
+  }
+
+  function saveYearEnd() {
+    const f = buildYearEnd(r, $state.snapshot(app.entities));
+    download(`${packPrefix(r)}_year_end.json`, new Blob([JSON.stringify(f, null, 2)], { type: 'application/json' }));
+    app.downloaded = { ...app.downloaded, __yearEnd: 'yes' };
   }
 
   function open(f: PackFile) {
@@ -122,6 +129,18 @@
 </section>
 
 <ItrJson />
+
+<section class="card year-end">
+  <span class="ye-icon"><Icon name="refresh" size={22} /></span>
+  <div>
+    <h3>Year-end file — for next year</h3>
+    <p class="muted">
+      {r.losses.carryForward.length ? `Losses to carry forward from ${r.losses.carryForward.length} year(s), ` : ''}lot corrections, company addresses and your method choices.
+      Keep it with your return and load it on the Upload step next year.
+    </p>
+  </div>
+  <button class="btn sm" onclick={saveYearEnd}><Icon name="download" size={16} />{app.downloaded.__yearEnd ? 'Saved — save again' : 'Save year-end file'}</button>
+</section>
 
 <div class="seg filters" role="tablist" aria-label="Filter files">
   {#each [['all', 'All', files.length], ['schedule', 'Schedules', count('schedule')], ['working', 'Working papers', count('working')], ['reference', 'Reference', count('reference')]] as [id, label, n]}
@@ -207,6 +226,10 @@
 </dialog>
 
 <style>
+  .year-end { display: grid; grid-template-columns: 28px 1fr auto; gap: 12px; align-items: center; margin-bottom: 24px; }
+  .year-end p { font-size: 13px; margin-top: 2px; }
+  .ye-icon { color: var(--accent); }
+  @media (max-width: 560px) { .year-end { grid-template-columns: 28px 1fr; } .year-end .btn { grid-column: 2; justify-self: start; } }
   .page-head { margin-bottom: 20px; }
   .page-head p { display: flex; align-items: center; gap: 6px; margin-top: 6px; }
   .page-head :global(.icon) { color: var(--success); }

@@ -16,6 +16,17 @@ export interface Settings {
   tin: string;
   /** Corrections for lots IBKR has without a proper purchase date or cost (transfers in, RSUs), by lotKey. */
   lotOverrides: Record<string, LotOverride>;
+  /** Capital losses from earlier years still available (Schedule CFL of last year's return). */
+  broughtForward: BroughtForwardLoss[];
+  /** Return filed (or to be filed) by the s.139(1) due date; a belated return can't carry this year's loss forward. */
+  filedByDueDate: boolean;
+}
+
+export interface BroughtForwardLoss {
+  /** Assessment year in which the loss arose, e.g. 2024 for AY 2024-25. */
+  ay: number;
+  stcl: string;
+  ltcl: string;
 }
 
 export interface LotOverride {
@@ -38,6 +49,8 @@ export const DEFAULT_SETTINGS: Settings = {
   residency: 'ROR',
   tin: '',
   lotOverrides: {},
+  broughtForward: [],
+  filedByDueDate: true,
 };
 
 export type Level = 'error' | 'warn' | 'info';
